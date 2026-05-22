@@ -1,0 +1,4 @@
+python -m streamlit run app.py
+
+dataanalyst.bkb@gmail.com
+D4t@analys+
