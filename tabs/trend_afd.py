@@ -14,7 +14,7 @@ st.markdown(f"# 📈 Trend Bulanan Performa Afdeling")
 st.markdown(f"**Analisis Pergerakan:** Kinerja Bulanan Afdeling Januari s/d Desember")
 
 # --- URUTAN BULAN STANDAR UNTUK SUMBU X ---
-URUTAN_BULAN = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
+URUTAN_BULAN = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGT', 'SEP', 'OKT', 'NOV', 'DES']
 
 # --- DROP DOWN BERTINGKAT (KEBUN -> AFDELING) ---
 c_sel_1, c_sel_2 = st.columns(2)

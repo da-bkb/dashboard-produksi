@@ -14,7 +14,7 @@ st.markdown(f"# 📈 Trend Bulanan Performa Kebun")
 st.markdown(f"**Analisis Pergerakan:** Kinerja Bulanan Januari s/d Desember")
 
 # --- URUTAN BULAN STANDAR UNTUK SUMBU X ---
-URUTAN_BULAN = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
+URUTAN_BULAN = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGT', 'SEP', 'OKT', 'NOV', 'DES']
 
 # --- DROP DOWN PILIHAN KEBUN ---
 list_kebun = sorted(df_raw["Kebun"].unique())

@@ -90,7 +90,7 @@ if cek_login():
     
     if df_raw is not None:
         # Konfigurasi Pilihan Bulan di Sidebar
-        list_bulan = ["JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOV", "DES"]
+        list_bulan = ["JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGT", "SEP", "OKT", "NOV", "DES"]
         bulan_aktif = df_raw[df_raw['Kg Akt.'] > 0]['Bulan'].unique()
         default_idx = list_bulan.index(bulan_aktif[-1]) if len(bulan_aktif) > 0 else 0
         

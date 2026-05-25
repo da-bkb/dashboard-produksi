@@ -2,3 +2,7 @@ python -m streamlit run app.py
 
 dataanalyst.bkb@gmail.com
 D4t@analys+
+
+git add .
+git commit -m "Fix sinkronisasi penamaan bulan Agustus dan AGS"
+git push origin main
