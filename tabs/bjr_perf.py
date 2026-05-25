@@ -11,8 +11,8 @@ list_bulan = st.session_state["list_bulan"]
 COL_JAN_AKT = "Jjg Akt."  
 COL_JAN_BGT = "Jjg Bgt."  
 
-st.markdown(f"# ⚖️ BJR Performa (Berat Janjang Rata-rata)")
-st.markdown(f"**Periode Analisis:** Bulanan {pilihan_bulan} & Akumulasi YTD s/d {pilihan_bulan}")
+st.markdown(f"# ⚖️ BJR to Budget (Kg/Janjang)")
+st.markdown(f"**Periode Analisis:** Bulan {pilihan_bulan} & s/d {pilihan_bulan}")
 
 # --- FUNGSI PEWARNAAN TABEL SESUAI LOGIKA BARU BJR ---
 def style_gap(val):
@@ -58,11 +58,11 @@ df_kebun_ytd = df_kebun_prod_ytd.sort_values(by="Kebun").reset_index(drop=True)
 df_kebun_ytd.insert(0, 'No', range(1, 1 + len(df_kebun_ytd)))
 
 # --- TAMPILAN GRAFIK & TABEL KEBUN ---
-st.markdown("### 🏢 Ringkasan Performa BJR Tingkat Kebun")
+st.markdown("### 🏢 BJR - All Estate Satui")
 c_b_b, c_b_y = st.columns(2)
 
 with c_b_b:
-    st.subheader(f"BJR Kebun - Per Bulan {pilihan_bulan}")
+    st.subheader(f"BJR Per Kebun Bulan {pilihan_bulan}")
     fig_k_bln = go.Figure()
     fig_k_bln.add_trace(go.Bar(x=df_kebun_bln["Kebun"], y=df_kebun_bln["BJR Akt."], name="Aktual Bulanan", marker_color="#28348A", width=0.4))
     fig_k_bln.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Budget Bulanan'))
@@ -86,7 +86,7 @@ with c_b_b:
     st.dataframe(df_kebun_bln[['No', 'Kebun', 'BJR Akt.', 'BJR Bgt.', 'Gap_Bjr', 'Gap_Pct']].style.format({"BJR Akt.": "{:.2f}", "BJR Bgt.": "{:.2f}", "Gap_Bjr": "{:+.2f}", "Gap_Pct": "{:+.1f}%"}).map(style_gap, subset=['Gap_Pct']), use_container_width=True, hide_index=True)
 
 with c_b_y:
-    st.subheader(f"BJR Kebun - Akumulasi YTD")
+    st.subheader(f"BJR Per Kebun s/d BI")
     fig_k_ytd = go.Figure()
     fig_k_ytd.add_trace(go.Bar(x=df_kebun_ytd["Kebun"], y=df_kebun_ytd["BJR Akt."], name="Aktual YTD", marker_color="#28348A", width=0.4))
     fig_k_ytd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Budget YTD'))
@@ -114,7 +114,7 @@ with c_b_y:
 # 📍 SECTION 2: BREAKDOWN DETIL PER AFDELING
 # =========================================================================
 st.markdown("---")
-st.markdown("## 📍 Rincian Komponen Detail Per Afdeling")
+st.markdown("## 📍 BJR Per Afdeling")
 
 list_kebun_aktif = sorted(df_murni_bln["Kebun"].unique())
 pilihan_kebun = st.selectbox("Pilih Kebun untuk melihat detail breakdown Afdeling:", list_kebun_aktif)
@@ -138,7 +138,7 @@ df_afd_ytd_grp['BJR_Gap_Pct'] = df_afd_ytd_grp['BJR_Pct'] - 100
 c_fig_afd_b, c_fig_afd_y = st.columns(2)
 
 with c_fig_afd_b:
-    st.subheader(f"BJR Afdeling - Bulan {pilihan_bulan}")
+    st.subheader(f"BJR Per Afdeling Bulan {pilihan_bulan}")
     fig_a_b = go.Figure()
     fig_a_b.add_trace(go.Bar(x=df_a_murni["Afdeling"], y=df_a_murni["BJR_Akt"], name="Aktual Bulanan", marker_color="#28348A", width=0.4))
     fig_a_b.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Budget Bulanan'))
@@ -162,7 +162,7 @@ with c_fig_afd_b:
     st.dataframe(df_a_murni[['Afdeling', 'BJR_Akt', 'BJR_Bgt', 'BJR_Gap_Val', 'BJR_Gap_Pct']].style.format({"BJR_Akt": "{:.2f}", "BJR_Bgt": "{:.2f}", "BJR_Gap_Val": "{:+.2f}", "BJR_Gap_Pct": "{:+.1f}%"}).map(style_gap, subset=['BJR_Gap_Pct']), use_container_width=True, hide_index=True)
 
 with c_fig_afd_y:
-    st.subheader(f"BJR Afdeling - Akumulasi YTD")
+    st.subheader(f"BJR Per Afdeling s/d BI")
     fig_a_y = go.Figure()
     fig_a_y.add_trace(go.Bar(x=df_afd_ytd_grp["Afdeling"], y=df_afd_ytd_grp["BJR_Akt"], name="YTD Aktual", marker_color="#28348A", width=0.4))
     fig_a_y.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Budget YTD'))

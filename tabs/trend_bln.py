@@ -58,7 +58,7 @@ df_trend = df_trend.sort_values('Bulan').reset_index(drop=True)
 # 📊 GRAFIK 1: TREND YIELD PERFORMA
 # =========================================================================
 st.markdown("---")
-st.subheader("🌱 Trend Yield Performa (Ton/ha)")
+st.subheader("🌱 Trend Yield (Ton/ha)")
 
 fig_yield = go.Figure()
 fig_yield.add_trace(go.Bar(x=df_trend["Bulan"], y=df_trend["Yield Akt."], name="Aktual", marker_color="#28348A", width=0.4))
@@ -95,7 +95,7 @@ st.plotly_chart(fig_yield, use_container_width=True)
 # 📊 GRAFIK 2: TREND JANJANG PER POKOK (J/P)
 # =========================================================================
 st.markdown("---")
-st.subheader("🌴 Trend Janjang Per Pokok Performa (J/P)")
+st.subheader("🌴 Trend RJP (J/P)")
 
 fig_jp = go.Figure()
 fig_jp.add_trace(go.Bar(x=df_trend["Bulan"], y=df_trend["J/P Akt."], name="Aktual", marker_color="#28348A", width=0.4))
@@ -132,7 +132,7 @@ st.plotly_chart(fig_jp, use_container_width=True)
 # 📊 GRAFIK 3: TREND BJR PERFORMA
 # =========================================================================
 st.markdown("---")
-st.subheader("⚖️ Trend BJR Performa (Berat Janjang Rata-rata)")
+st.subheader("⚖️ Trend BJR (Kg/Janjang)")
 
 fig_bjr = go.Figure()
 fig_bjr.add_trace(go.Bar(x=df_trend["Bulan"], y=df_trend["BJR Akt."], name="Aktual", marker_color="#28348A", width=0.4))

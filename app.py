@@ -26,7 +26,7 @@ def cek_login():
         return True
 
     st.markdown("<h2 style='text-align: center;'>🔒 Akses Terbatas</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: gray;'>Silakan masukkan kredensial Anda untuk mengakses Dashboard Produksi 2026</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: gray;'>Silakan masukkan kredensial Anda untuk mengakses Dashboard Produksi</p>", unsafe_allow_html=True)
     
     col_a, col_b, col_c = st.columns([1, 1.5, 1])
     with col_b:
@@ -119,7 +119,7 @@ if cek_login():
         pg_jp      = st.Page(path_jp, title="🌴 Janjang / Pokok (J/P)", icon="🌴")
         pg_bjr     = st.Page(path_bjr, title="⚖️ Berat Janjang Rata-rata (BJR)", icon="⚖️")
         pg_trend_b = st.Page(path_trend_b, title="📈 Trend Bulanan Kebun", icon="📊")
-        pg_trend_a = st.Page(path_trend_a, title="📉 Trend Afdeling", icon="📉")
+        pg_trend_a = st.Page(path_trend_a, title="📈 Trend Afdeling", icon="📊")
 
         # Jalankan Navigasi Multi-page Streamlit
         pg = st.navigation([pg_yield, pg_jp, pg_bjr, pg_trend_b, pg_trend_a])

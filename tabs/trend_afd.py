@@ -68,10 +68,10 @@ df_trend = df_trend.sort_values('Bulan').reset_index(drop=True)
 # 📉 SECTION GRAFIK ANALISIS
 # =========================================================================
 st.markdown("---")
-st.markdown(f"### 📉 Grafik Analisis Trend Bulanan Per Afdeling ({pilihan_afd})")
+st.markdown(f"### 📈 Grafik Analisis Trend Bulanan Per Afdeling ({pilihan_afd})")
 
 # 📊 GRAFIK 1: YIELD AFDELING
-st.subheader("🌱 Trend Yield Performa (Ton/ha)")
+st.subheader("🌱 Trend Yield (Ton/ha)")
 fig_yield = go.Figure()
 fig_yield.add_trace(go.Bar(x=df_trend["Bulan"], y=df_trend["Yield Akt."], name="Aktual", marker_color="#28348A", width=0.4))
 fig_yield.add_trace(go.Scatter(
@@ -98,7 +98,7 @@ st.plotly_chart(fig_yield, use_container_width=True)
 
 # 📊 GRAFIK 2: J/P AFDELING
 st.markdown("---")
-st.subheader("🌴 Trend Janjang Per Pokok Performa (J/P)")
+st.subheader("🌴 Trend RJP (J/P)")
 fig_jp = go.Figure()
 fig_jp.add_trace(go.Bar(x=df_trend["Bulan"], y=df_trend["J/P Akt."], name="Aktual", marker_color="#28348A", width=0.4))
 fig_jp.add_trace(go.Scatter(
@@ -125,7 +125,7 @@ st.plotly_chart(fig_jp, use_container_width=True)
 
 # 📊 GRAFIK 3: BJR AFDELING
 st.markdown("---")
-st.subheader("⚖️ Trend BJR Performa (Berat Janjang Rata-rata)")
+st.subheader("⚖️ Trend BJR (Kg/Janjang)")
 fig_bjr = go.Figure()
 fig_bjr.add_trace(go.Bar(x=df_trend["Bulan"], y=df_trend["BJR Akt."], name="Aktual", marker_color="#28348A", width=0.4))
 fig_bjr.add_trace(go.Scatter(
