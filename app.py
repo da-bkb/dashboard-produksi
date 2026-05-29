@@ -10,17 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- SIDEBAR: PENGATURAN BASIS DATA & PERIODE ---
-st.sidebar.image("https://via.placeholder.com/150", use_container_width=True)
-st.sidebar.markdown("## ⚙️ Pengaturan Utama")
-
-# Radio button basis analisis tetap di sidebar sebagai pengendali data utama
-basis_analisa = st.sidebar.radio(
-    "1. Pilih Basis Target Analisis:",
-    ["Capaian terhadap BUDGET", "Capaian terhadap SENSUS"]
-)
-
-# --- PROSES LOADING DATA BERSIH ---
+# --- PROSES LOADING DATA BERSIH (Fungsi ditaruh di atas sebelum filter di-render) ---
 @st.cache_data
 def load_data(tipe_target):
     if tipe_target == "Capaian terhadap BUDGET":
@@ -65,7 +55,28 @@ def load_data(tipe_target):
             
     return df, nama_target
 
-# Eksekusi loading database
+
+# =========================================================================
+# 🌴 AREA UTAMA DASHBOARD (ATAS DAN FILTER SEJAJAR)
+# =========================================================================
+
+# 1. Judul Utama Dashboard
+st.title("🌴 Dashboard Performa Produksi Satui")
+st.markdown("Silakan atur basis analisis, periode bulan, dan menu grafik pada panel di bawah ini:")
+st.markdown("---")
+
+# 2. PEMBUATAN 3 KOLOM FILTER UTAMA (SEJAJAR HORIZONTAL)
+col1, col2, col3 = st.columns([1, 1, 1])
+
+with col1:
+    # Filter 1: Basis Analisis
+    basis_analisa = st.selectbox(
+        "🎯 1. Basis Target Analisis:",
+        ["Capaian terhadap BUDGET", "Capaian terhadap SENSUS"],
+        key="main_basis_analisa"
+    )
+
+# Eksekusi loading database berdasarkan basis analisis terpilih
 df_raw, nama_target = load_data(basis_analisa)
 
 if df_raw.empty:
@@ -73,7 +84,7 @@ if df_raw.empty:
 else:
     df_raw = df_raw.replace([np.inf, -np.inf], np.nan)
 
-    # Urutkan urutan bulan standar
+    # Urutkan urutan bulan standar operational
     list_bulan_raw = df_raw["Bulan"].unique().tolist()
     URUTAN_BULAN_STD = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGT', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
     list_bulan = [b for b in URUTAN_BULAN_STD if b in list_bulan_raw]
@@ -81,39 +92,33 @@ else:
         if b not in list_bulan:
             list_bulan.append(b)
 
-    # Filter Bulan diletakkan di sidebar agar area atas tengah fokus untuk judul dan menu
-    pilihan_bulan = st.sidebar.selectbox("2. Pilih Bulan Analisis:", list_bulan, key="global_month_picker")
+    with col2:
+        # Filter 2: Pilihan Bulan
+        pilihan_bulan = st.selectbox(
+            "📅 2. Bulan Analisis:", 
+            list_bulan, 
+            key="global_month_picker_main"
+        )
 
-    # Simpan ke session state
+    # Simpan data terpilih ke session state agar terbaca oleh file di folder tabs
     st.session_state["df_raw"] = df_raw
     st.session_state["pilihan_bulan"] = pilihan_bulan
     st.session_state["list_bulan"] = list_bulan
 
-    # =========================================================================
-    # 🌴 AREA UTAMA DASHBOARD (TENGAH)
-    # =========================================================================
-    
-    # 1. Judul Utama Dashboard
-    st.title("🌴 Dashboard Performa Produksi Satui")
-    st.markdown(f"Menampilkan data analisa berbasis **Aktual vs {nama_target}**")
-    st.markdown("---")
-
-    # 2. MENU ANALISIS SEKARANG DIBAWAH JUDUL (Menggunakan Selectbox Horizontal Style)
-    # Kita buat wadah pembatas kecil agar terlihat rapi dan tidak terlalu lebar
-    col_menu, col_empty = st.columns([1, 2])
-    with col_menu:
+    with col3:
+        # Filter 3: Menu Dashboard Grafik
         menu_analisis = st.selectbox(
-            "📊 PILIH MENU ANALISIS DASHBOARD:",
+            "📊 3. Pilih Menu Analisis:",
             ["Yield / Tonase", "BJR", "Janjang / Pokok (J/P)", "Trend Per Afdeling", "Trend Per Kebun"],
             key="menu_dashboard_navigator_main"
         )
     
-    st.markdown("---") # Garis pembatas antara menu navigasi dan isi grafik di bawahnya
+    st.markdown("---") # Garis pembatas tebal penanda area visualisasi grafik di bawahnya
 
     # Ambil konteks memori global agar sub-file tabs mengenali variabel utama app.py
     global_context = globals()
 
-    # --- ROUTING EKSEKUSI FILE SUB-TAB BERDASARKAN PILIHAN DI BAWAH JUDUL ---
+    # --- ROUTING EKSEKUSI FILE SUB-TAB ---
     if menu_analisis == "Yield / Tonase":
         exec(open("tabs/yield_perf.py").read(), global_context)
     elif menu_analisis == "BJR":
