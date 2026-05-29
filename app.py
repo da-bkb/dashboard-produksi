@@ -19,24 +19,45 @@ basis_analisa = st.sidebar.radio(
     ["Capaian terhadap BUDGET", "Capaian terhadap SENSUS"]
 )
 
-# --- PROSES LOADING DATA SESUAI PILIHAN ---
+# --- PROSES LOADING DATA DENGAN CLEANING OTOMATIS ---
 @st.cache_data
 def load_data(tipe_target):
     if tipe_target == "Capaian terhadap BUDGET":
-        # Membaca database budget (pastikan file Rekap26.csv ada di root folder)
-        if os.path.exists("Rekap26.csv"):
-            df = pd.read_csv("Rekap26.csv", sep=";")
-        else:
-            # Fallback jika separator bawaannya koma
-            df = pd.read_csv("Rekap26.csv", sep=",")
-        return df, "Budget"
+        file_name = "Rekap26.csv"
+        nama_target = "Budget"
     else:
-        # Membaca database sensus (menggunakan file Rekap26_Sns.csv)
-        if os.path.exists("Rekap26_Sns.csv"):
-            df = pd.read_csv("Rekap26_Sns.csv", sep=";")
-        else:
-            df = pd.read_csv("Rekap26_Sns.csv", sep=",")
-        return df, "Sensus"
+        file_name = "Rekap26_Sns.csv"
+        nama_target = "Sensus"
+        
+    # 1. Baca File CSV
+    if os.path.exists(file_name):
+        df = pd.read_csv(file_name, sep=";")
+    else:
+        df = pd.read_csv(file_name, sep=",")
+        
+    # 2. Bersihkan spasi pada nama kolom
+    df.columns = df.columns.str.strip()
+    
+    # 3. KORREKSI TIPE DATA (Ubah koma menjadi titik untuk kolom numerik yang terbaca object)
+    kolom_numerik_bermasalah = ['Luas', 'BJR Akt.', 'Ton/ha Akt.', '% Cap.', 'Gap Ton/Ha', 'Gap %']
+    
+    # Tambahkan kolom spesifik sesuai target jika ada
+    if nama_target == "Budget":
+        kolom_numerik_bermasalah.extend(['BJR Bgt.', 'Ton/ha Bgt.'])
+    else:
+        kolom_numerik_bermasalah.extend(['BJR Sns.', 'Ton/ha Sns.'])
+        
+    # Proses pembersihan koma -> titik -> ubah ke float
+    for col in kolom_numerik_bermasalah:
+        if col in df.columns:
+            # Jika kolom bertipe string/object, bersihkan komanya
+            if df[col].dtype == 'object':
+                df[col] = df[col].astype(str).str.replace('.', '', regex=False) # Hapus titik ribuan jika ada
+                df[col] = df[col].str.replace(',', '.', regex=False) # Ubah koma desimal jadi titik
+            # Ubah paksa menjadi numerik desimal
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+            
+    return df, nama_target
 
 # Eksekusi fungsi load data
 df_raw, nama_target = load_data(basis_analisa)
