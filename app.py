@@ -39,10 +39,12 @@ def load_data(tipe_target):
         df = pd.DataFrame()
         
     if not df.empty:
-        # 2. Bersihkan spasi pada nama kolom
+        # 2. Bersihkan spasi pada nama kolom dan data teks bulan
         df.columns = df.columns.str.strip()
+        if 'Bulan' in df.columns:
+            df['Bulan'] = df['Bulan'].astype(str).str.strip().str.upper()
         
-        # 3. KOREKSI TIPE DATA (Hanya mengubah yang bertipe teks/object)
+        # 3. KOREKSI TIPE DATA (Ubah koma desimal menjadi titik desimal jika terbaca teks)
         kolom_numerik = [
             'Luas', 'Pokok', 'Jjg Akt.', 'Kg Akt.', 'BJR Akt.', 'Ton/ha Akt.', '% Cap.', 'Gap Ton/Ha', 'Gap %',
             'Jjg Bgt.', 'Kg Bgt.', 'BJR Bgt.', 'Ton/ha Bgt.',
@@ -52,9 +54,7 @@ def load_data(tipe_target):
         for col in kolom_numerik:
             if col in df.columns:
                 if df[col].dtype == 'object':
-                    # Ganti koma desimal menjadi titik desimal
                     df[col] = df[col].astype(str).str.replace(',', '.', regex=False)
-                # Ubah paksa menjadi numerik desimal
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
             
     return df, nama_target
@@ -69,19 +69,21 @@ st.session_state["df_raw"] = df_raw
 st.sidebar.markdown("---")
 st.sidebar.markdown("## 📅 Filter Periode")
 
-# Mengambil list bulan unik dari data yang aktif
-list_bulan_raw = df_raw["Bulan"].unique() if not df_raw.empty else ['JAN']
-URUTAN_BULAN_STD = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
+# Ambil list bulan unik langsung dari data kebun yang aktif
+list_bulan_raw = df_raw["Bulan"].unique().tolist() if not df_raw.empty else ['JAN']
+
+# URUTAN STANDAR DISESUAIKAN DENGAN CSV (AGUSTUS = AGT)
+URUTAN_BULAN_STD = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGT', 'SEP', 'OKT', 'NOV', 'DES']
 list_bulan = [b for b in URUTAN_BULAN_STD if b in list_bulan_raw]
 
-# Jika tidak sengaja ada bulan di luar standar
+# Jaga-jaga jika ada kode bulan lain di luar standar
 for b in list_bulan_raw:
     if b not in list_bulan:
         list_bulan.append(b)
 
 pilihan_bulan = st.sidebar.selectbox("2. Pilih Bulan Analisis:", list_bulan)
 
-# Masukkan ke session state periode
+# Masukkan ke session state periode agar dibaca file tab
 st.session_state["pilihan_bulan"] = pilihan_bulan
 st.session_state["list_bulan"] = list_bulan
 
@@ -98,9 +100,9 @@ if nama_target == "Budget":
     with t1:
         import tabs.yield_perf as yield_perf
     with t2:
-        import tabs.bjr_perf as bjr_perf
-    with t3:
         import tabs.janjang_pokok as janjang_pokok
+    with t3:
+        import tabs.bjr_perf as bjr_perf
     with t4:
         import tabs.trend_afd as trend_afd
     with t5:
@@ -114,8 +116,8 @@ else:
     with t1:
         import tabs.yield_sensus as yield_sensus
     with t2:
-        import tabs.bjr_sensus as bjr_sensus
-    with t3:
         import tabs.janjang_sensus as janjang_sensus
+    with t3:
+        import tabs.bjr_sensus as bjr_sensus
     with t4:
         import tabs.trend_bln_sensus as trend_bln_sensus
