@@ -87,68 +87,51 @@ else:
         if b not in list_bulan:
             list_bulan.append(b)
 
-    pilihan_bulan = st.sidebar.selectbox("2. Pilih Bulan Analisis:", list_bulan)
+    pilihan_bulan = st.sidebar.selectbox("2. Pilih Bulan Analisis:", list_bulan, key="global_month_picker")
     st.session_state["pilihan_bulan"] = pilihan_bulan
     st.session_state["list_bulan"] = list_bulan
+
+    # --- SIDEBAR: NAVIGASI MENU UTAMA (PENGGANTI TABS YANG EROR) ---
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("## 📊 Menu Analisis")
+    
+    if nama_target == "Budget":
+        menu_analisis = st.sidebar.radio(
+            "3. Pilih Menu Dashboard:",
+            ["Yield / Tonase", "Janjang / Pokok (J/P)", "BJR", "Trend Per Kebun", "Trend Per Afdeling"],
+            key="menu_budget_navigator"
+        )
+    else:
+        menu_analisis = st.sidebar.radio(
+            "3. Pilih Menu Dashboard:",
+            ["Yield / Tonase (Sns)", "Janjang / Pokok (Sns)", "BJR (Sns)", "Trend Sensus Kebun"],
+            key="menu_sensus_navigator"
+        )
 
     # --- TITLE UTAMA DASHBOARD ---
     st.title("🌴 Dashboard Performa Produksi Satui")
     st.markdown(f"Menampilkan data analisa berbasis **Aktual vs {nama_target}**")
+    st.markdown("---")
 
-    # --- NAVIGASI TAB UTAMA (URUTAN FIX SESUAI PERMINTAAN BAPAK) ---
-    # Urutan: Yield -> Janjang/Pokok -> BJR -> Trend Per Kebun -> Trend Per Afdeling
+    # --- LOGIKA ROUTING KODE BERDASARKAN SELEKSI SIDEBAR ---
     if nama_target == "Budget":
-        tabs_menu = ["Yield / Tonase", "Janjang / Pokok (J/P)", "BJR", "Trend Per Kebun", "Trend Per Afdeling"]
-        t1, t2, t3, t4, t5 = st.tabs(tabs_menu)
-        
-        with t1:
-            exec(open("tabs/yield_perf.py").read(), {
-                'st': st, 'pd': pd, 
-                '__file__': 'tabs/yield_perf.py', '__name__': 'tabs.yield_perf'
-            })
-        with t2:
-            exec(open("tabs/janjang_pokok.py").read(), {
-                'st': st, 'pd': pd, 
-                '__file__': 'tabs/janjang_pokok.py', '__name__': 'tabs.janjang_pokok'
-            })
-        with t3:
-            exec(open("tabs/bjr_perf.py").read(), {
-                'st': st, 'pd': pd, 
-                '__file__': 'tabs/bjr_perf.py', '__name__': 'tabs.bjr_perf'
-            })
-        with t4:
-            exec(open("tabs/trend_bln.py").read(), {
-                'st': st, 'pd': pd, 
-                '__file__': 'tabs/trend_bln.py', '__name__': 'tabs.trend_bln'
-            })
-        with t5:
-            exec(open("tabs/trend_afd.py").read(), {
-                'st': st, 'pd': pd, 
-                '__file__': 'tabs/trend_afd.py', '__name__': 'tabs.trend_afd'
-            })
+        if menu_analisis == "Yield / Tonase":
+            exec(open("tabs/yield_perf.py").read(), {'st': st, 'pd': pd})
+        elif menu_analisis == "Janjang / Pokok (J/P)":
+            exec(open("tabs/janjang_pokok.py").read(), {'st': st, 'pd': pd})
+        elif menu_analisis == "BJR":
+            exec(open("tabs/bjr_perf.py").read(), {'st': st, 'pd': pd})
+        elif menu_analisis == "Trend Per Kebun":
+            exec(open("tabs/trend_bln.py").read(), {'st': st, 'pd': pd})
+        elif menu_analisis == "Trend Per Afdeling":
+            exec(open("tabs/trend_afd.py").read(), {'st': st, 'pd': pd})
 
     else:
-        # Susunan Menu Dinamis Khusus Pilihan Target SENSUS
-        tabs_menu_sns = ["Yield / Tonase (Sns)", "Janjang / Pokok (Sns)", "BJR (Sns)", "Trend Sensus Kebun"]
-        t1, t2, t3, t4 = st.tabs(tabs_menu_sns)
-        
-        with t1:
-            exec(open("tabs/yield_sensus.py").read(), {
-                'st': st, 'pd': pd, 
-                '__file__': 'tabs/yield_sensus.py', '__name__': 'tabs.yield_sensus'
-            })
-        with t2:
-            exec(open("tabs/janjang_sensus.py").read(), {
-                'st': st, 'pd': pd, 
-                '__file__': 'tabs/janjang_sensus.py', '__name__': 'tabs.janjang_sensus'
-            })
-        with t3:
-            exec(open("tabs/bjr_sensus.py").read(), {
-                'st': st, 'pd': pd, 
-                '__file__': 'tabs/bjr_sensus.py', '__name__': 'tabs.bjr_sensus'
-            })
-        with t4:
-            exec(open("tabs/trend_bln_sensus.py").read(), {
-                'st': st, 'pd': pd, 
-                '__file__': 'tabs/trend_bln_sensus.py', '__name__': 'tabs.trend_bln_sensus'
-            })
+        if menu_analisis == "Yield / Tonase (Sns)":
+            exec(open("tabs/yield_sensus.py").read(), {'st': st, 'pd': pd})
+        elif menu_analisis == "Janjang / Pokok (Sns)":
+            exec(open("tabs/janjang_sensus.py").read(), {'st': st, 'pd': pd})
+        elif menu_analisis == "BJR (Sns)":
+            exec(open("tabs/bjr_sensus.py").read(), {'st': st, 'pd': pd})
+        elif menu_analisis == "Trend Sensus Kebun":
+            exec(open("tabs/trend_bln_sensus.py").read(), {'st': st, 'pd': pd})
