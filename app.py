@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import os
-import importlib
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(
@@ -81,7 +80,7 @@ else:
     st.sidebar.markdown("## 📅 Filter Periode")
 
     list_bulan_raw = df_raw["Bulan"].unique().tolist()
-    URUTAN_BULAN_STD = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGT', 'SEP', 'OKT', 'NOV', 'DES']
+    URUTAN_BULAN_STD = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGT', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
     list_bulan = [b for b in URUTAN_BULAN_STD if b in list_bulan_raw]
 
     for b in list_bulan_raw:
@@ -96,21 +95,6 @@ else:
     st.title("🌴 Dashboard Performa Produksi Satui")
     st.markdown(f"Menampilkan data analisa berbasis **Aktual vs {nama_target}**")
 
-    # --- 🛡️ MEKANISME PROTEKSI DUPLIKASI ID WIDGET ---
-    if not hasattr(st, 'selectbox_original'):
-        st.selectbox_original = st.selectbox
-
-    def apply_widget_patch(tab_suffix):
-        """Mencegat pemanggilan selectbox untuk menyuntikkan key unik otomatis berdasarkan tab"""
-        def custom_selectbox(label, *args, **kwargs):
-            if 'key' not in kwargs:
-                # Ambil karakter alfanumerik dari label sebagai penanda aman
-                cleaned_label = "".join([c for c in str(label) if c.isalnum() or c in "_-"])[:30]
-                kwargs['key'] = f"sb_{tab_suffix}_{cleaned_label}"
-            return st.selectbox_original(label, *args, **kwargs)
-        st.selectbox = custom_selectbox
-
-
     # --- NAVIGASI TAB UTAMA (URUTAN FIX SESUAI PERMINTAAN BAPAK) ---
     # Urutan: Yield -> Janjang/Pokok -> BJR -> Trend Per Kebun -> Trend Per Afdeling
     if nama_target == "Budget":
@@ -118,25 +102,30 @@ else:
         t1, t2, t3, t4, t5 = st.tabs(tabs_menu)
         
         with t1:
-            apply_widget_patch("yield")
-            import tabs.yield_perf as yield_perf
-            importlib.reload(yield_perf)
+            exec(open("tabs/yield_perf.py").read(), {
+                'st': st, 'pd': pd, 
+                '__file__': 'tabs/yield_perf.py', '__name__': 'tabs.yield_perf'
+            })
         with t2:
-            apply_widget_patch("janjang")
-            import tabs.janjang_pokok as janjang_pokok
-            importlib.reload(janjang_pokok)
+            exec(open("tabs/janjang_pokok.py").read(), {
+                'st': st, 'pd': pd, 
+                '__file__': 'tabs/janjang_pokok.py', '__name__': 'tabs.janjang_pokok'
+            })
         with t3:
-            apply_widget_patch("bjr")
-            import tabs.bjr_perf as bjr_perf
-            importlib.reload(bjr_perf)
+            exec(open("tabs/bjr_perf.py").read(), {
+                'st': st, 'pd': pd, 
+                '__file__': 'tabs/bjr_perf.py', '__name__': 'tabs.bjr_perf'
+            })
         with t4:
-            apply_widget_patch("trend_kebun")
-            import tabs.trend_bln as trend_bln
-            importlib.reload(trend_bln)
+            exec(open("tabs/trend_bln.py").read(), {
+                'st': st, 'pd': pd, 
+                '__file__': 'tabs/trend_bln.py', '__name__': 'tabs.trend_bln'
+            })
         with t5:
-            apply_widget_patch("trend_afd")
-            import tabs.trend_afd as trend_afd
-            importlib.reload(trend_afd)
+            exec(open("tabs/trend_afd.py").read(), {
+                'st': st, 'pd': pd, 
+                '__file__': 'tabs/trend_afd.py', '__name__': 'tabs.trend_afd'
+            })
 
     else:
         # Susunan Menu Dinamis Khusus Pilihan Target SENSUS
@@ -144,21 +133,22 @@ else:
         t1, t2, t3, t4 = st.tabs(tabs_menu_sns)
         
         with t1:
-            apply_widget_patch("yield_sns")
-            import tabs.yield_sensus as yield_sensus
-            importlib.reload(yield_sensus)
+            exec(open("tabs/yield_sensus.py").read(), {
+                'st': st, 'pd': pd, 
+                '__file__': 'tabs/yield_sensus.py', '__name__': 'tabs.yield_sensus'
+            })
         with t2:
-            apply_widget_patch("janjang_sns")
-            import tabs.janjang_sensus as janjang_sensus
-            importlib.reload(janjang_sensus)
+            exec(open("tabs/janjang_sensus.py").read(), {
+                'st': st, 'pd': pd, 
+                '__file__': 'tabs/janjang_sensus.py', '__name__': 'tabs.janjang_sensus'
+            })
         with t3:
-            apply_widget_patch("bjr_sns")
-            import tabs.bjr_sensus as bjr_sensus
-            importlib.reload(bjr_sensus)
+            exec(open("tabs/bjr_sensus.py").read(), {
+                'st': st, 'pd': pd, 
+                '__file__': 'tabs/bjr_sensus.py', '__name__': 'tabs.bjr_sensus'
+            })
         with t4:
-            apply_widget_patch("trend_kebun_sns")
-            import tabs.trend_bln_sensus as trend_bln_sensus
-            importlib.reload(trend_bln_sensus)
-
-    # Kembalikan fungsi asli setelah selesai rendering halaman
-    st.selectbox = st.selectbox_original
+            exec(open("tabs/trend_bln_sensus.py").read(), {
+                'st': st, 'pd': pd, 
+                '__file__': 'tabs/trend_bln_sensus.py', '__name__': 'tabs.trend_bln_sensus'
+            })
