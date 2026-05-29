@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- PROSES LOADING DATA BERSIH ---
+# --- PROSES LOADING DATA BERSIH (MAPPING OTOMATIS) ---
 @st.cache_data
 def load_data(tipe_target):
     if tipe_target == "Capaian terhadap BUDGET":
@@ -45,6 +45,14 @@ def load_data(tipe_target):
                 df[col] = df[col].astype(str).str.replace(' ', '', regex=False)
                 df[col] = df[col].str.replace(',', '.', regex=False)
             df[col] = pd.to_numeric(df[col], errors='coerce')
+            
+    # 💡 KUNCI PENGEMBALIAN DATA: SINKRONISASI ALIAS KOLOM SENSUS KE BUDGET
+    # Ini membuat file .py budget asli Bapak bisa memproses data sensus tanpa merusak struktur grafik bulanan & YTD
+    if nama_target == "SENSUS":
+        if 'Jjg Sns.' in df.columns: df['Jjg Bgt.'] = df['Jjg Sns.']
+        if 'Kg Sns.' in df.columns:  df['Kg Bgt.'] = df['Kg Sns.']
+        if 'BJR Sns.' in df.columns: df['BJR Bgt.'] = df['BJR Sns.']
+        if 'Ton/ha Sns.' in df.columns: df['Ton/ha Bgt.'] = df['Ton/ha Sns.']
             
     return df, nama_target
 
@@ -97,7 +105,7 @@ else:
     st.session_state["list_bulan"] = list_bulan
 
     with col3:
-        # 💡 URUTAN MENU SEKARANG SAMA PERSIS SESUAI PERMINTAAN
+        # Urutan List Menu Sesuai Permintaan Bapak
         menu_analisis = st.selectbox(
             "📊 3. Pilih Menu Analisis:",
             ["Yield", "RJP", "BJR", "Trend Kebun", "Trend Afdeling"],
@@ -109,27 +117,14 @@ else:
     # Ambil konteks memori global agar sub-file tabs mengenali variabel utama app.py
     global_context = globals()
 
-    # --- JALUR ROUTING EKSEKUSI FILE BERDASARKAN BASIS TARGET ---
-    if nama_target == "BUDGET":
-        if menu_analisis == "Yield":
-            exec(open("tabs/yield_perf.py").read(), global_context)
-        elif menu_analisis == "RJP":
-            exec(open("tabs/janjang_pokok.py").read(), global_context)
-        elif menu_analisis == "BJR":
-            exec(open("tabs/bjr_perf.py").read(), global_context)
-        elif menu_analisis == "Trend Kebun":
-            exec(open("tabs/trend_bln.py").read(), global_context)
-        elif menu_analisis == "Trend Afdeling":
-            exec(open("tabs/trend_afd.py").read(), global_context)
-            
-    elif nama_target == "SENSUS":
-        if menu_analisis == "Yield":
-            exec(open("tabs/yield_sensus.py").read(), global_context)
-        elif menu_analisis == "RJP":
-            exec(open("tabs/janjang_sensus.py").read(), global_context)
-        elif menu_analisis == "BJR":
-            exec(open("tabs/bjr_sensus.py").read(), global_context)
-        elif menu_analisis == "Trend Kebun":
-            exec(open("tabs/trend_bln.py").read(), global_context)  # Menggunakan file trend bawaan yang sudah auto-sinkron
-        elif menu_analisis == "Trend Afdeling":
-            exec(open("tabs/trend_afd.py").read(), global_context)   # Menggunakan file trend bawaan yang sudah auto-sinkron
+    # --- ROUTING BALIK KE JALUR AMAN FILE UTAMA ---
+    if menu_analisis == "Yield":
+        exec(open("tabs/yield_perf.py").read(), global_context)
+    elif menu_analisis == "RJP":
+        exec(open("tabs/janjang_pokok.py").read(), global_context)
+    elif menu_analisis == "BJR":
+        exec(open("tabs/bjr_perf.py").read(), global_context)
+    elif menu_analisis == "Trend Afdeling":
+        exec(open("tabs/trend_afd.py").read(), global_context)
+    elif menu_analisis == "Trend Kebun":
+        exec(open("tabs/trend_bln.py").read(), global_context)
