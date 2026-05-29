@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import os
-import importlib
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(
@@ -30,7 +29,6 @@ def load_data(tipe_target):
         file_name = "Rekap26_Sns.csv"
         nama_target = "Sensus"
         
-    # Pastikan file ada sebelum dibaca
     if not os.path.exists(file_name):
         return pd.DataFrame(), nama_target
 
@@ -71,7 +69,6 @@ def load_data(tipe_target):
 # Eksekusi fungsi load data
 df_raw, nama_target = load_data(basis_analisa)
 
-# Jika data kosong (karena file belum di-upload/salah nama)
 if df_raw.empty:
     st.error(f"⚠️ Gagal memuat data. File database untuk pilihan '{basis_analisa}' tidak terdeteksi di folder proyek.")
 else:
@@ -95,30 +92,26 @@ else:
     st.session_state["list_bulan"] = list_bulan
 
     # --- TITLE UTAMA DASHBOARD ---
-    st.title("🌴 Dashboard Performa Produksi Satui")
+    st.title("🌴 Dashboard Performa Production Satui")
     st.markdown(f"Menampilkan data analisa berbasis **Aktual vs {nama_target}**")
 
-    # --- NAVIGASI TAB UTAMA (URUTAN BARU PERMINTAAN BAPAK) ---
+    # --- NAVIGASI TAB UTAMA (MENGGUNAKAN TRIK UNIK KEY AGAR AMAN DARI DUPLIKASI) ---
     # Urutan: Yield -> Janjang/Pokok -> BJR -> Trend Per Kebun -> Trend Per Afdeling
     if nama_target == "Budget":
         tabs_menu = ["Yield / Tonase", "Janjang / Pokok (J/P)", "BJR", "Trend Per Kebun", "Trend Per Afdeling"]
         t1, t2, t3, t4, t5 = st.tabs(tabs_menu)
         
+        # Menggunakan exec() murni tetapi dengan ruang lingkup terisolasi untuk menghindari tabrakan id widget
         with t1:
-            import tabs.yield_perf as yield_perf
-            importlib.reload(yield_perf)
+            exec(open("tabs/yield_perf.py").read(), {'st': st, 'pd': pd})
         with t2:
-            import tabs.janjang_pokok as janjang_pokok
-            importlib.reload(janjang_pokok)
+            exec(open("tabs/janjang_pokok.py").read(), {'st': st, 'pd': pd})
         with t3:
-            import tabs.bjr_perf as bjr_perf
-            importlib.reload(bjr_perf)
+            exec(open("tabs/bjr_perf.py").read(), {'st': st, 'pd': pd})
         with t4:
-            import tabs.trend_bln as trend_bln
-            importlib.reload(trend_bln)
+            exec(open("tabs/trend_bln.py").read(), {'st': st, 'pd': pd})
         with t5:
-            import tabs.trend_afd as trend_afd
-            importlib.reload(trend_afd)
+            exec(open("tabs/trend_afd.py").read(), {'st': st, 'pd': pd})
 
     else:
         # Susunan Menu Dinamis Khusus Pilihan Target SENSUS
@@ -126,14 +119,10 @@ else:
         t1, t2, t3, t4 = st.tabs(tabs_menu_sns)
         
         with t1:
-            import tabs.yield_sensus as yield_sensus
-            importlib.reload(yield_sensus)
+            exec(open("tabs/yield_sensus.py").read(), {'st': st, 'pd': pd})
         with t2:
-            import tabs.janjang_sensus as janjang_sensus
-            importlib.reload(janjang_sensus)
+            exec(open("tabs/janjang_sensus.py").read(), {'st': st, 'pd': pd})
         with t3:
-            import tabs.bjr_sensus as bjr_sensus
-            importlib.reload(bjr_sensus)
+            exec(open("tabs/bjr_sensus.py").read(), {'st': st, 'pd': pd})
         with t4:
-            import tabs.trend_bln_sensus as trend_bln_sensus
-            importlib.reload(trend_bln_sensus)
+            exec(open("tabs/trend_bln_sensus.py").read(), {'st': st, 'pd': pd})
