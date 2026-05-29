@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import importlib
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(
@@ -92,26 +93,50 @@ else:
     st.session_state["list_bulan"] = list_bulan
 
     # --- TITLE UTAMA DASHBOARD ---
-    st.title("🌴 Dashboard Performa Production Satui")
+    st.title("🌴 Dashboard Performa Produksi Satui")
     st.markdown(f"Menampilkan data analisa berbasis **Aktual vs {nama_target}**")
 
-    # --- NAVIGASI TAB UTAMA (MENGGUNAKAN TRIK UNIK KEY AGAR AMAN DARI DUPLIKASI) ---
+    # --- 🛡️ MEKANISME PROTEKSI DUPLIKASI ID WIDGET ---
+    if not hasattr(st, 'selectbox_original'):
+        st.selectbox_original = st.selectbox
+
+    def apply_widget_patch(tab_suffix):
+        """Mencegat pemanggilan selectbox untuk menyuntikkan key unik otomatis berdasarkan tab"""
+        def custom_selectbox(label, *args, **kwargs):
+            if 'key' not in kwargs:
+                # Ambil karakter alfanumerik dari label sebagai penanda aman
+                cleaned_label = "".join([c for c in str(label) if c.isalnum() or c in "_-"])[:30]
+                kwargs['key'] = f"sb_{tab_suffix}_{cleaned_label}"
+            return st.selectbox_original(label, *args, **kwargs)
+        st.selectbox = custom_selectbox
+
+
+    # --- NAVIGASI TAB UTAMA (URUTAN FIX SESUAI PERMINTAAN BAPAK) ---
     # Urutan: Yield -> Janjang/Pokok -> BJR -> Trend Per Kebun -> Trend Per Afdeling
     if nama_target == "Budget":
         tabs_menu = ["Yield / Tonase", "Janjang / Pokok (J/P)", "BJR", "Trend Per Kebun", "Trend Per Afdeling"]
         t1, t2, t3, t4, t5 = st.tabs(tabs_menu)
         
-        # Menggunakan exec() murni tetapi dengan ruang lingkup terisolasi untuk menghindari tabrakan id widget
         with t1:
-            exec(open("tabs/yield_perf.py").read(), {'st': st, 'pd': pd})
+            apply_widget_patch("yield")
+            import tabs.yield_perf as yield_perf
+            importlib.reload(yield_perf)
         with t2:
-            exec(open("tabs/janjang_pokok.py").read(), {'st': st, 'pd': pd})
+            apply_widget_patch("janjang")
+            import tabs.janjang_pokok as janjang_pokok
+            importlib.reload(janjang_pokok)
         with t3:
-            exec(open("tabs/bjr_perf.py").read(), {'st': st, 'pd': pd})
+            apply_widget_patch("bjr")
+            import tabs.bjr_perf as bjr_perf
+            importlib.reload(bjr_perf)
         with t4:
-            exec(open("tabs/trend_bln.py").read(), {'st': st, 'pd': pd})
+            apply_widget_patch("trend_kebun")
+            import tabs.trend_bln as trend_bln
+            importlib.reload(trend_bln)
         with t5:
-            exec(open("tabs/trend_afd.py").read(), {'st': st, 'pd': pd})
+            apply_widget_patch("trend_afd")
+            import tabs.trend_afd as trend_afd
+            importlib.reload(trend_afd)
 
     else:
         # Susunan Menu Dinamis Khusus Pilihan Target SENSUS
@@ -119,10 +144,21 @@ else:
         t1, t2, t3, t4 = st.tabs(tabs_menu_sns)
         
         with t1:
-            exec(open("tabs/yield_sensus.py").read(), {'st': st, 'pd': pd})
+            apply_widget_patch("yield_sns")
+            import tabs.yield_sensus as yield_sensus
+            importlib.reload(yield_sensus)
         with t2:
-            exec(open("tabs/janjang_sensus.py").read(), {'st': st, 'pd': pd})
+            apply_widget_patch("janjang_sns")
+            import tabs.janjang_sensus as janjang_sensus
+            importlib.reload(janjang_sensus)
         with t3:
-            exec(open("tabs/bjr_sensus.py").read(), {'st': st, 'pd': pd})
+            apply_widget_patch("bjr_sns")
+            import tabs.bjr_sensus as bjr_sensus
+            importlib.reload(bjr_sensus)
         with t4:
-            exec(open("tabs/trend_bln_sensus.py").read(), {'st': st, 'pd': pd})
+            apply_widget_patch("trend_kebun_sns")
+            import tabs.trend_bln_sensus as trend_bln_sensus
+            importlib.reload(trend_bln_sensus)
+
+    # Kembalikan fungsi asli setelah selesai rendering halaman
+    st.selectbox = st.selectbox_original
