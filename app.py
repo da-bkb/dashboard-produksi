@@ -11,7 +11,7 @@ st.set_page_config(
 )
 
 # --- SIDEBAR: PILIHAN SUMBER DATA TARGET ---
-st.sidebar.image("https://via.placeholder.com/150", use_container_width=True) 
+st.sidebar.image("https://via.placeholder.com/150", use_container_width=True) # Silakan ganti logo perusahaan jika ada
 st.sidebar.markdown("## ⚙️ Pengaturan Dashboard")
 
 # Radio button untuk memilih basis analisa
@@ -20,7 +20,7 @@ basis_analisa = st.sidebar.radio(
     ["Capaian terhadap BUDGET", "Capaian terhadap SENSUS"]
 )
 
-# --- PROSES LOADING DATA DENGAN ALIASING ---
+# --- PROSES LOADING DATA DENGAN ALIASING AMAN ---
 @st.cache_data
 def load_data(tipe_target):
     if tipe_target == "Capaian terhadap BUDGET":
@@ -30,6 +30,7 @@ def load_data(tipe_target):
         file_name = "Rekap26_Sns.csv"
         nama_target = "Sensus"
         
+    # Pastikan file ada sebelum dibaca
     if not os.path.exists(file_name):
         return pd.DataFrame(), nama_target
 
@@ -38,11 +39,14 @@ def load_data(tipe_target):
     except:
         df = pd.read_csv(file_name, sep=",")
         
+    # Bersihkan nama kolom
     df.columns = df.columns.str.strip()
     
+    # Standarisasi kolom Bulan
     if 'Bulan' in df.columns:
         df['Bulan'] = df['Bulan'].astype(str).str.strip().str.upper()
         
+    # KOREKSI KOMA DESIMAL MENJADI TITIK DESIMAL
     kolom_angka = [
         'Luas', 'Pokok', 'Jjg Akt.', 'Kg Akt.', 'BJR Akt.', 'Ton/ha Akt.', '% Cap.', 'Gap Ton/Ha', 'Gap %',
         'Jjg Bgt.', 'Kg Bgt.', 'BJR Bgt.', 'Ton/ha Bgt.',
@@ -55,7 +59,7 @@ def load_data(tipe_target):
                 df[col] = df[col].astype(str).str.replace(',', '.', regex=False)
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
             
-    # Sinkronisasi kolom target Sensus agar dibaca mulus oleh sistem Budget
+    # Trik Pemetaan Kolom Sensus agar seragam dibaca oleh file visualisasi budget
     if nama_target == "Sensus":
         if 'Jjg Sns.' in df.columns: df['Jjg Bgt.'] = df['Jjg Sns.']
         if 'Kg Sns.' in df.columns:  df['Kg Bgt.'] = df['Kg Sns.']
@@ -64,12 +68,14 @@ def load_data(tipe_target):
             
     return df, nama_target
 
+# Eksekusi fungsi load data
 df_raw, nama_target = load_data(basis_analisa)
 
+# Jika data kosong (karena file belum di-upload/salah nama)
 if df_raw.empty:
-    st.error(f"⚠️ Gagal memuat data. File pendukung untuk pilihan '{basis_analisa}' tidak ditemukan di server.")
+    st.error(f"⚠️ Gagal memuat data. File database untuk pilihan '{basis_analisa}' tidak terdeteksi di folder proyek.")
 else:
-    # Simpan ke session state global
+    # Simpan ke session state agar bisa diakses oleh sub-file di folder /tabs
     st.session_state["df_raw"] = df_raw
 
     # --- SIDEBAR: FILTER BULAN GLOBAL ---
@@ -92,33 +98,42 @@ else:
     st.title("🌴 Dashboard Performa Produksi Satui")
     st.markdown(f"Menampilkan data analisa berbasis **Aktual vs {nama_target}**")
 
-    # --- NAVIGASI TAB UTAMA (URUTAN FIX SESUAI PERMINTAAN BAPAK) ---
+    # --- NAVIGASI TAB UTAMA (URUTAN BARU PERMINTAAN BAPAK) ---
+    # Urutan: Yield -> Janjang/Pokok -> BJR -> Trend Per Kebun -> Trend Per Afdeling
     if nama_target == "Budget":
         tabs_menu = ["Yield / Tonase", "Janjang / Pokok (J/P)", "BJR", "Trend Per Kebun", "Trend Per Afdeling"]
         t1, t2, t3, t4, t5 = st.tabs(tabs_menu)
         
-        # Menggunakan metode eksekusi langsung (mengatasi bug import cache Streamlit)
         with t1:
-            exec(open("tabs/yield_perf.py").read(), globals())
+            import tabs.yield_perf as yield_perf
+            importlib.reload(yield_perf)
         with t2:
-            exec(open("tabs/janjang_pokok.py").read(), globals())
+            import tabs.janjang_pokok as janjang_pokok
+            importlib.reload(janjang_pokok)
         with t3:
-            exec(open("tabs/bjr_perf.py").read(), globals())
+            import tabs.bjr_perf as bjr_perf
+            importlib.reload(bjr_perf)
         with t4:
-            exec(open("tabs/trend_bln.py").read(), globals())
+            import tabs.trend_bln as trend_bln
+            importlib.reload(trend_bln)
         with t5:
-            exec(open("tabs/trend_afd.py").read(), globals())
+            import tabs.trend_afd as trend_afd
+            importlib.reload(trend_afd)
 
     else:
-        # Susunan Tab Menu untuk Mode Sensus
+        # Susunan Menu Dinamis Khusus Pilihan Target SENSUS
         tabs_menu_sns = ["Yield / Tonase (Sns)", "Janjang / Pokok (Sns)", "BJR (Sns)", "Trend Sensus Kebun"]
         t1, t2, t3, t4 = st.tabs(tabs_menu_sns)
         
         with t1:
-            exec(open("tabs/yield_sensus.py").read(), globals())
+            import tabs.yield_sensus as yield_sensus
+            importlib.reload(yield_sensus)
         with t2:
-            exec(open("tabs/janjang_sensus.py").read(), globals())
+            import tabs.janjang_sensus as janjang_sensus
+            importlib.reload(janjang_sensus)
         with t3:
-            exec(open("tabs/bjr_sensus.py").read(), globals())
+            import tabs.bjr_sensus as bjr_sensus
+            importlib.reload(bjr_sensus)
         with t4:
-            exec(open("tabs/trend_bln_sensus.py").read(), globals())
+            import tabs.trend_bln_sensus as trend_bln_sensus
+            importlib.reload(trend_bln_sensus)
