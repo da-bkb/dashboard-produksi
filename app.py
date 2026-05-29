@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- PROSES LOADING DATA BERSIH (Fungsi ditaruh di atas sebelum filter di-render) ---
+# --- PROSES LOADING DATA BERSIH ---
 @st.cache_data
 def load_data(tipe_target):
     if tipe_target == "Capaian terhadap BUDGET":
@@ -46,13 +46,6 @@ def load_data(tipe_target):
                 df[col] = df[col].str.replace(',', '.', regex=False)
             df[col] = pd.to_numeric(df[col], errors='coerce')
             
-    # Sinkronisasi data Sensus ke struktur kolom Budget agar sub-file langsung jalan
-    if nama_target == "SENSUS":
-        if 'Jjg Sns.' in df.columns: df['Jjg Bgt.'] = df['Jjg Sns.']
-        if 'Kg Sns.' in df.columns:  df['Kg Bgt.'] = df['Kg Sns.']
-        if 'BJR Sns.' in df.columns: df['BJR Bgt.'] = df['BJR Sns.']
-        if 'Ton/ha Sns.' in df.columns: df['Ton/ha Bgt.'] = df['Ton/ha Sns.']
-            
     return df, nama_target
 
 
@@ -69,7 +62,6 @@ st.markdown("---")
 col1, col2, col3 = st.columns([1, 1, 1])
 
 with col1:
-    # Filter 1: Basis Analisis
     basis_analisa = st.selectbox(
         "🎯 1. Basis Target Analisis:",
         ["Capaian terhadap BUDGET", "Capaian terhadap SENSUS"],
@@ -93,7 +85,6 @@ else:
             list_bulan.append(b)
 
     with col2:
-        # Filter 2: Pilihan Bulan
         pilihan_bulan = st.selectbox(
             "📅 2. Bulan Analisis:", 
             list_bulan, 
@@ -106,26 +97,39 @@ else:
     st.session_state["list_bulan"] = list_bulan
 
     with col3:
-        # Filter 3: Menu Dashboard Grafik
+        # 💡 URUTAN MENU SEKARANG SAMA PERSIS SESUAI PERMINTAAN
         menu_analisis = st.selectbox(
             "📊 3. Pilih Menu Analisis:",
-            ["Yield / Tonase", "BJR", "Janjang / Pokok (J/P)", "Trend Per Afdeling", "Trend Per Kebun"],
+            ["Yield", "RJP", "BJR", "Trend Kebun", "Trend Afdeling"],
             key="menu_dashboard_navigator_main"
         )
     
-    st.markdown("---") # Garis pembatas tebal penanda area visualisasi grafik di bawahnya
+    st.markdown("---") 
 
     # Ambil konteks memori global agar sub-file tabs mengenali variabel utama app.py
     global_context = globals()
 
-    # --- ROUTING EKSEKUSI FILE SUB-TAB ---
-    if menu_analisis == "Yield / Tonase":
-        exec(open("tabs/yield_perf.py").read(), global_context)
-    elif menu_analisis == "BJR":
-        exec(open("tabs/bjr_perf.py").read(), global_context)
-    elif menu_analisis == "Janjang / Pokok (J/P)":
-        exec(open("tabs/janjang_pokok.py").read(), global_context)
-    elif menu_analisis == "Trend Per Afdeling":
-        exec(open("tabs/trend_afd.py").read(), global_context)
-    elif menu_analisis == "Trend Per Kebun":
-        exec(open("tabs/trend_bln.py").read(), global_context)
+    # --- JALUR ROUTING EKSEKUSI FILE BERDASARKAN BASIS TARGET ---
+    if nama_target == "BUDGET":
+        if menu_analisis == "Yield":
+            exec(open("tabs/yield_perf.py").read(), global_context)
+        elif menu_analisis == "RJP":
+            exec(open("tabs/janjang_pokok.py").read(), global_context)
+        elif menu_analisis == "BJR":
+            exec(open("tabs/bjr_perf.py").read(), global_context)
+        elif menu_analisis == "Trend Kebun":
+            exec(open("tabs/trend_bln.py").read(), global_context)
+        elif menu_analisis == "Trend Afdeling":
+            exec(open("tabs/trend_afd.py").read(), global_context)
+            
+    elif nama_target == "SENSUS":
+        if menu_analisis == "Yield":
+            exec(open("tabs/yield_sensus.py").read(), global_context)
+        elif menu_analisis == "RJP":
+            exec(open("tabs/janjang_sensus.py").read(), global_context)
+        elif menu_analisis == "BJR":
+            exec(open("tabs/bjr_sensus.py").read(), global_context)
+        elif menu_analisis == "Trend Kebun":
+            exec(open("tabs/trend_bln.py").read(), global_context)  # Menggunakan file trend bawaan yang sudah auto-sinkron
+        elif menu_analisis == "Trend Afdeling":
+            exec(open("tabs/trend_afd.py").read(), global_context)   # Menggunakan file trend bawaan yang sudah auto-sinkron
