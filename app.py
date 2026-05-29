@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import importlib
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(
@@ -10,7 +11,7 @@ st.set_page_config(
 )
 
 # --- SIDEBAR: PILIHAN SUMBER DATA TARGET ---
-st.sidebar.image("https://via.placeholder.com/150", use_container_width=True) # Silakan ganti logo perusahaan jika ada
+st.sidebar.image("https://via.placeholder.com/150", use_container_width=True) 
 st.sidebar.markdown("## ⚙️ Pengaturan Dashboard")
 
 # Radio button untuk memilih basis analisa
@@ -19,7 +20,7 @@ basis_analisa = st.sidebar.radio(
     ["Capaian terhadap BUDGET", "Capaian terhadap SENSUS"]
 )
 
-# --- PROSES LOADING DATA DENGAN ALIASING OTOMATIS ---
+# --- PROSES LOADING DATA DENGAN ALIASING ---
 @st.cache_data
 def load_data(tipe_target):
     if tipe_target == "Capaian terhadap BUDGET":
@@ -29,9 +30,7 @@ def load_data(tipe_target):
         file_name = "Rekap26_Sns.csv"
         nama_target = "Sensus"
         
-    # Pastikan file ada sebelum dibaca
     if not os.path.exists(file_name):
-        st.error(f"⚠️ File `{file_name}` tidak ditemukan! Silakan upload file ke GitHub.")
         return pd.DataFrame(), nama_target
 
     try:
@@ -39,14 +38,11 @@ def load_data(tipe_target):
     except:
         df = pd.read_csv(file_name, sep=",")
         
-    # Bersihkan spasi pada nama kolom
     df.columns = df.columns.str.strip()
     
-    # Standarisasi kolom Bulan
     if 'Bulan' in df.columns:
         df['Bulan'] = df['Bulan'].astype(str).str.strip().str.upper()
         
-    # KOREKSI KOMA DESIMAL MENJADI TITIK DESIMAL
     kolom_angka = [
         'Luas', 'Pokok', 'Jjg Akt.', 'Kg Akt.', 'BJR Akt.', 'Ton/ha Akt.', '% Cap.', 'Gap Ton/Ha', 'Gap %',
         'Jjg Bgt.', 'Kg Bgt.', 'BJR Bgt.', 'Ton/ha Bgt.',
@@ -59,8 +55,7 @@ def load_data(tipe_target):
                 df[col] = df[col].astype(str).str.replace(',', '.', regex=False)
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
             
-    # 🔥 TRIK UTAMA: Petakan kolom Sensus agar memiliki nama alias Budget
-    # Langkah ini mencegah terjadinya KeyError di file visualisasi tab
+    # Sinkronisasi kolom target Sensus agar dibaca mulus oleh sistem Budget
     if nama_target == "Sensus":
         if 'Jjg Sns.' in df.columns: df['Jjg Bgt.'] = df['Jjg Sns.']
         if 'Kg Sns.' in df.columns:  df['Kg Bgt.'] = df['Kg Sns.']
@@ -69,11 +64,12 @@ def load_data(tipe_target):
             
     return df, nama_target
 
-# Eksekusi pemanggilan fungsi data
 df_raw, nama_target = load_data(basis_analisa)
 
-# --- JALANKAN UTAMA DASHBOARD ---
-if not df_raw.empty:
+if df_raw.empty:
+    st.error(f"⚠️ Gagal memuat data. File pendukung untuk pilihan '{basis_analisa}' tidak ditemukan di server.")
+else:
+    # Simpan ke session state global
     st.session_state["df_raw"] = df_raw
 
     # --- SIDEBAR: FILTER BULAN GLOBAL ---
@@ -96,35 +92,33 @@ if not df_raw.empty:
     st.title("🌴 Dashboard Performa Produksi Satui")
     st.markdown(f"Menampilkan data analisa berbasis **Aktual vs {nama_target}**")
 
-    # --- NAVIGASI TAB SESUAI URUTAN BARU PERMINTAAN BAPAK ---
-    # Yield -> Janjang/Pokok -> BJR -> Trend Per Kebun -> Trend Per Afdeling
+    # --- NAVIGASI TAB UTAMA (URUTAN FIX SESUAI PERMINTAAN BAPAK) ---
     if nama_target == "Budget":
         tabs_menu = ["Yield / Tonase", "Janjang / Pokok (J/P)", "BJR", "Trend Per Kebun", "Trend Per Afdeling"]
         t1, t2, t3, t4, t5 = st.tabs(tabs_menu)
         
+        # Menggunakan metode eksekusi langsung (mengatasi bug import cache Streamlit)
         with t1:
-            import tabs.yield_perf as yield_perf
+            exec(open("tabs/yield_perf.py").read(), globals())
         with t2:
-            import tabs.janjang_pokok as janjang_pokok
+            exec(open("tabs/janjang_pokok.py").read(), globals())
         with t3:
-            import tabs.bjr_perf as bjr_perf
+            exec(open("tabs/bjr_perf.py").read(), globals())
         with t4:
-            import tabs.trend_bln as trend_bln
+            exec(open("tabs/trend_bln.py").read(), globals())
         with t5:
-            import tabs.trend_afd as trend_afd
+            exec(open("tabs/trend_afd.py").read(), globals())
 
     else:
-        # Urutan Tab Sensus disamakan polanya agar rapi
+        # Susunan Tab Menu untuk Mode Sensus
         tabs_menu_sns = ["Yield / Tonase (Sns)", "Janjang / Pokok (Sns)", "BJR (Sns)", "Trend Sensus Kebun"]
         t1, t2, t3, t4 = st.tabs(tabs_menu_sns)
         
         with t1:
-            import tabs.yield_sensus as yield_sensus
+            exec(open("tabs/yield_sensus.py").read(), globals())
         with t2:
-            import tabs.janjang_sensus as janjang_sensus
+            exec(open("tabs/janjang_sensus.py").read(), globals())
         with t3:
-            import tabs.bjr_sensus as bjr_sensus
+            exec(open("tabs/bjr_sensus.py").read(), globals())
         with t4:
-            import tabs.trend_bln_sensus as trend_bln_sensus
-else:
-    st.warning("Silakan periksa ketersediaan file data Anda di folder repository.")
+            exec(open("tabs/trend_bln_sensus.py").read(), globals())
