@@ -20,17 +20,16 @@ def cek_login():
         st.session_state["authenticated"] = False
 
     if not st.session_state["authenticated"]:
-        # Tampilan Form Login
-        st.zone = st.columns([1, 2, 1])
-        with st.zone[1]:
+        # Tampilan Form Login dengan susunan kolom
+        kolom = st.columns([1, 2, 1])
+        with kolom[1]:
             st.markdown("<h2 style='text-align: center;'>🔒 Ruang Log Masuk Sistem</h2>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: gray;'>Silakan masukkan kredensial untuk mengakses data produksi Satui</p>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: gray;'>Silakan masukkan kredensial untuk mengakses data produksi Satui</p>", unsafe_allow_html=True)
             
             username = st.text_input("Username:")
             password = st.text_input("Password:", type="password")
             tombol_login = st.button("Masuk", use_container_width=True)
             
-            # Pengaturan akun login (Silakan Bapak sesuaikan di bawah ini)
             if tombol_login:
                 if username == "AGRO" and password == "Satui26!":
                     st.session_state["authenticated"] = True
