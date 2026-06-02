@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # =========================================================================
-# 🔒 SISTEM LOGIN KEAMANAN DASHBOARD
+# 🔒 SISTEM LOGIN KEAMANAN DASHBOARD (FINAL)
 # =========================================================================
 def cek_login():
     """Fungsi untuk memeriksa status login pengguna"""
@@ -20,7 +20,7 @@ def cek_login():
         st.session_state["authenticated"] = False
 
     if not st.session_state["authenticated"]:
-        # Tampilan Form Login dengan susunan kolom
+        # Tampilan Form Login dengan susunan kolom rapi
         kolom = st.columns([1, 2, 1])
         with kolom[1]:
             st.markdown("<h2 style='text-align: center;'>🔒 Ruang Log Masuk Sistem</h2>", unsafe_allow_html=True)
@@ -40,7 +40,7 @@ def cek_login():
         return False
     return True
 
-# Jalankan pengecekan login, jika belum login maka hentikan kode di bawahnya
+# Jalankan proteksi login sebelum mengeksekusi dashboard utama
 if cek_login():
 
     # --- PROSES LOADING DATA BERSIH (MAPPING OTOMATIS) ---
@@ -79,6 +79,7 @@ if cek_login():
                     df[col] = df[col].str.replace(',', '.', regex=False)
                 df[col] = pd.to_numeric(df[col], errors='coerce')
                 
+        # Sinkronisasi alias kolom Sensus agar grafik & tabel YTD tetap normal
         if nama_target == "SENSUS":
             if 'Jjg Sns.' in df.columns: df['Jjg Bgt.'] = df['Jjg Sns.']
             if 'Kg Sns.' in df.columns:  df['Kg Bgt.'] = df['Kg Sns.']
@@ -89,10 +90,10 @@ if cek_login():
 
 
     # =========================================================================
-    # 🌴 AREA UTAMA DASHBOARD (SETELAH BERHASIL LOGIN)
+    # 🌴 AREA UTAMA DASHBOARD
     # =========================================================================
 
-    # Tombol Logout kecil di pojok kanan atas
+    # Sidebar Keluar Sesi
     st.sidebar.markdown("### 🔑 Sesi Aktif")
     if st.sidebar.button("Keluar / Log Out"):
         st.session_state["authenticated"] = False
@@ -125,22 +126,19 @@ if cek_login():
             if b not in list_bulan:
                 list_bulan.append(b)
 
-        # 💡 LOGIKA OTOMATIS -1 BULAN BERJALAN
+        # Logika Otomatis Menampilkan Data Bulan Lalu (-1 Bulan Berjalan)
         MAP_ANGKA_BULAN = {1: 'JAN', 2: 'FEB', 3: 'MAR', 4: 'APR', 5: 'MEI', 6: 'JUN', 7: 'JUL', 8: 'AGT', 9: 'SEP', 10: 'OKT', 11: 'NOV', 12: 'DES'}
         bulan_sekarang_angka = datetime.now().month
         
-        # Hitung angka bulan lalu (Jika Januari/1 maka balik ke Desember/12)
         bulan_lalu_angka = 12 if bulan_sekarang_angka == 1 else bulan_sekarang_angka - 1
         nama_bulan_lalu = MAP_ANGKA_BULAN.get(bulan_lalu_angka, 'JAN')
 
-        # Tentukan posisi index default untuk Selectbox
         if nama_bulan_lalu in list_bulan:
             default_index_bulan = list_bulan.index(nama_bulan_lalu)
         else:
-            default_index_bulan = 0 # Jaga-jaga jika data bulan lalu belum ada di CSV, mulai dari awal
+            default_index_bulan = 0 
 
         with col2:
-            # Menggunakan nilai index dinamis hasil hitungan waktu real-time
             pilihan_bulan = st.selectbox(
                 "📅 2. Bulan Analisis:", 
                 list_bulan, 
@@ -153,6 +151,7 @@ if cek_login():
         st.session_state["list_bulan"] = list_bulan
 
         with col3:
+            # Urutan menu yang sudah fix sesuai instruksi Bapak
             menu_analisis = st.selectbox(
                 "📊 3. Pilih Menu Analisis:",
                 ["Yield", "RJP", "BJR", "Trend Kebun", "Trend Afdeling"],
@@ -163,6 +162,7 @@ if cek_login():
 
         global_context = globals()
 
+        # Eksekusi tab sesuai pilihan menu
         if menu_analisis == "Yield":
             exec(open("tabs/yield_perf.py").read(), global_context)
         elif menu_analisis == "RJP":
