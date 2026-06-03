@@ -90,6 +90,7 @@ with col_g1:
     fig_mtd.add_trace(go.Scatter(x=df_k_mtd["Kebun"], y=[None]*len(df_k_mtd), mode='lines', line=dict(color='#00B050', width=4), name='Sensus'))
     for idx, row in df_k_mtd.iterrows():
         fig_mtd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
+        # KOREKSI RANGE PANAH MERAH SENSUS (+-5%)
         if row["Pct"] < 95 or row["Pct"] > 105:
             fig_mtd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
     fig_mtd.update_layout(template="plotly_white", yaxis_title="Janjang/Pokok", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
@@ -106,6 +107,7 @@ with col_g2:
     fig_ytd.add_trace(go.Scatter(x=df_k_ytd["Kebun"], y=[None]*len(df_k_ytd), mode='lines', line=dict(color='#00B050', width=4), name='Sensus'))
     for idx, row in df_k_ytd.iterrows():
         fig_ytd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
+        # KOREKSI RANGE PANAH MERAH SENSUS (+-5%)
         if row["Pct"] < 95 or row["Pct"] > 105:
             fig_ytd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
     fig_ytd.update_layout(template="plotly_white", yaxis_title="Janjang/Pokok", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
@@ -116,7 +118,7 @@ with col_g2:
 def style_gap_black(val):
     return 'color: black; font-weight: bold;'
 
-def style_var_fill_koreksi(val):
+def style_sensus_var_fill(val):
     if isinstance(val, (int, float)):
         if val > 5: return 'background-color: #FFC000; color: black; font-weight: bold; text-align: right;'
         elif -5 <= val <= 5: return 'background-color: #A9D08E; color: black; font-weight: bold; text-align: right;'
@@ -141,7 +143,7 @@ with col_t1:
     df_final_mtd = pd.concat([df_t_mtd, df_total_mtd], ignore_index=True)
     df_final_mtd.insert(0, 'No', range(1, len(df_final_mtd) + 1))
     df_final_mtd.columns = ['No', 'Kebun', 'Aktual (Jg/Pkk)', 'Sensus (Jg/Pkk)', 'Gap (Jg/Pkk)', 'Var (%)']
-    st.dataframe(df_final_mtd.style.format({'Aktual (Jg/Pkk)': '{:,.2f}', 'Sensus (Jg/Pkk)': '{:,.2f}', 'Gap (Jg/Pkk)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Jg/Pkk)']).map(style_var_fill_koreksi, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_rjp_sns_kebun_mtd")
+    st.dataframe(df_final_mtd.style.format({'Aktual (Jg/Pkk)': '{:,.2f}', 'Sensus (Jg/Pkk)': '{:,.2f}', 'Gap (Jg/Pkk)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Jg/Pkk)']).map(style_sensus_var_fill, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_rjp_sns_kebun_mtd")
 
 with col_t2:
     st.markdown(f"##### 📋 Data RJP Per Kebun - s.d {pilihan_bulan}")
@@ -158,7 +160,7 @@ with col_t2:
     df_final_ytd = pd.concat([df_t_ytd, df_total_ytd], ignore_index=True)
     df_final_ytd.insert(0, 'No', range(1, len(df_final_ytd) + 1))
     df_final_ytd.columns = ['No', 'Kebun', 'Aktual (Jg/Pkk)', 'Sensus (Jg/Pkk)', 'Gap (Jg/Pkk)', 'Var (%)']
-    st.dataframe(df_final_ytd.style.format({'Aktual (Jg/Pkk)': '{:,.2f}', 'Sensus (Jg/Pkk)': '{:,.2f}', 'Gap (Jg/Pkk)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Jg/Pkk)']).map(style_var_fill_koreksi, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_rjp_sns_kebun_ytd")
+    st.dataframe(df_final_ytd.style.format({'Aktual (Jg/Pkk)': '{:,.2f}', 'Sensus (Jg/Pkk)': '{:,.2f}', 'Gap (Jg/Pkk)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Jg/Pkk)']).map(style_sensus_var_fill, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_rjp_sns_kebun_ytd")
 
 
 # --- 5. SUB DETAIL PER AFDELING ---
@@ -195,6 +197,7 @@ if not df_m_afd.empty:
         fig_amtd.add_trace(go.Scatter(x=df_a_mtd["Afdeling"], y=[None]*len(df_a_mtd), mode='lines', line=dict(color='#00B050', width=4), name='Sensus'))
         for idx, row in df_a_mtd.iterrows():
             fig_amtd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
+            # KOREKSI RANGE PANAH MERAH SENSUS (+-5%)
             if row["Pct"] < 95 or row["Pct"] > 105:
                 fig_amtd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
         fig_amtd.update_layout(template="plotly_white", yaxis_title="Janjang/Pokok", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
@@ -207,6 +210,7 @@ if not df_m_afd.empty:
         fig_aytd.add_trace(go.Scatter(x=df_a_ytd["Afdeling"], y=[None]*len(df_a_ytd), mode='lines', line=dict(color='#00B050', width=4), name='Sensus'))
         for idx, row in df_a_ytd.iterrows():
             fig_aytd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
+            # KOREKSI RANGE PANAH MERAH SENSUS (+-5%)
             if row["Pct"] < 95 or row["Pct"] > 105:
                 fig_aytd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
         fig_aytd.update_layout(template="plotly_white", yaxis_title="Janjang/Pokok", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
@@ -221,7 +225,7 @@ if not df_m_afd.empty:
         df_ta_mtd['Pct'] = (df_ta_mtd['Aktual'] / df_ta_mtd['Sensus'] * 100) - 100
         df_ta_mtd.insert(0, 'No', range(1, len(df_ta_mtd) + 1))
         df_ta_mtd.columns = ['No', 'Afdeling', 'Aktual (Jg/Pkk)', 'Sensus (Jg/Pkk)', 'Gap (Jg/Pkk)', 'Var (%)']
-        st.dataframe(df_ta_mtd.style.format({'Aktual (Jg/Pkk)': '{:,.2f}', 'Sensus (Jg/Pkk)': '{:,.2f}', 'Gap (Jg/Pkk)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Jg/Pkk)']).map(style_var_fill_koreksi, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_rjp_sns_afd_mtd")
+        st.dataframe(df_ta_mtd.style.format({'Aktual (Jg/Pkk)': '{:,.2f}', 'Sensus (Jg/Pkk)': '{:,.2f}', 'Gap (Jg/Pkk)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Jg/Pkk)']).map(style_sensus_var_fill, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_rjp_sns_afd_mtd")
 
     with col_ta2:
         st.markdown(f"##### 📋 Data RJP Per Afdeling - s.d {pilihan_bulan}")
@@ -231,6 +235,6 @@ if not df_m_afd.empty:
         df_ta_ytd['Pct'] = (df_ta_ytd['Aktual'] / df_ta_ytd['Sensus'] * 100) - 100
         df_ta_ytd.insert(0, 'No', range(1, len(df_ta_ytd) + 1))
         df_ta_ytd.columns = ['No', 'Afdeling', 'Aktual (Jg/Pkk)', 'Sensus (Jg/Pkk)', 'Gap (Jg/Pkk)', 'Var (%)']
-        st.dataframe(df_ta_ytd.style.format({'Aktual (Jg/Pkk)': '{:,.2f}', 'Sensus (Jg/Pkk)': '{:,.2f}', 'Gap (Jg/Pkk)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Jg/Pkk)']).map(style_var_fill_koreksi, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_rjp_sns_afd_ytd")
+        st.dataframe(df_ta_ytd.style.format({'Aktual (Jg/Pkk)': '{:,.2f}', 'Sensus (Jg/Pkk)': '{:,.2f}', 'Gap (Jg/Pkk)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Jg/Pkk)']).map(style_sensus_var_fill, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_rjp_sns_afd_ytd")
 else:
     st.warning("Tidak ada data Afdeling untuk kebun ini.")
