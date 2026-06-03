@@ -47,6 +47,7 @@ col_g1, col_g2 = st.columns(2)
 with col_g1:
     st.markdown(f"##### 📊 Grafik Yield - Bulan Ini ({pilihan_bulan})")
     fig_mtd = go.Figure()
+    # Perbaikan Syntax: Label % diletakkan aman di dasar batang
     fig_mtd.add_trace(go.Bar(
         x=df_k_mtd["Kebun"], y=df_k_mtd["Aktual"], name="Aktual MTD", marker_color="#28348A", width=0.35,
         text=[f"{p:,.1f}%" for p in df_k_mtd["Pct"]], textposition="inside", insidetextanchor="bottom",
@@ -64,6 +65,7 @@ with col_g1:
 with col_g2:
     st.markdown(f"##### 📊 Grafik Yield - s.d Bulan Ini (YTD {pilihan_bulan})")
     fig_ytd = go.Figure()
+    # Perbaikan Syntax: Label % diletakkan aman di dasar batang
     fig_ytd.add_trace(go.Bar(
         x=df_k_ytd["Kebun"], y=df_k_ytd["Aktual"], name="Aktual YTD", marker_color="#28348A", width=0.35,
         text=[f"{p:,.1f}%" for p in df_k_ytd["Pct"]], textposition="inside", insidetextanchor="bottom",
@@ -124,3 +126,15 @@ df_final.columns = [
 
 def style_variance(val):
     if isinstance(val, (int, float)):
+        color = 'red' if val < 0 else 'green'
+        return f'color: {color}; font-weight: bold;'
+    return ''
+
+st.dataframe(
+    df_final.style.format({
+        'Akt (MTD)': '{:,.2f}', 'Bgt (MTD)': '{:,.2f}', 'Var (MTD)': '{:+,.2f}', 'Var MTD (%)': '{:+,.2f}%',
+        'Akt (YTD)': '{:,.2f}', 'Bgt (YTD)': '{:,.2f}', 'Var (YTD)': '{:+,.2f}', 'Var YTD (%)': '{:+,.2f}%'
+    }).map(style_variance, subset=['Var (MTD)', 'Var MTD (%)', 'Var (YTD)', 'Var YTD (%)']),
+    use_container_width=True,
+    hide_index=True
+)

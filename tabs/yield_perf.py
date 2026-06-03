@@ -47,9 +47,9 @@ col_g1, col_g2 = st.columns(2)
 with col_g1:
     st.markdown(f"##### 📊 Grafik Yield - Bulan Ini ({pilihan_bulan})")
     fig_mtd = go.Figure()
-    # Batang Aktual + Label Persentase di dasar batang (insidetextanchor='bottom')
+    # Perbaikan Syntax: Label % diletakkan aman di dasar batang
     fig_mtd.add_trace(go.Bar(
-        x=df_mtd_text := df_k_mtd["Kebun"], y=df_k_mtd["Aktual"], name="Aktual MTD", marker_color="#28348A", width=0.35,
+        x=df_k_mtd["Kebun"], y=df_k_mtd["Aktual"], name="Aktual MTD", marker_color="#28348A", width=0.35,
         text=[f"{p:,.1f}%" for p in df_k_mtd["Pct"]], textposition="inside", insidetextanchor="bottom",
         textfont=dict(color="white", size=12, family="Arial Black")
     ))
@@ -65,7 +65,7 @@ with col_g1:
 with col_g2:
     st.markdown(f"##### 📊 Grafik Yield - s.d Bulan Ini (YTD {pilihan_bulan})")
     fig_ytd = go.Figure()
-    # Batang Aktual + Label Persentase di dasar batang (insidetextanchor='bottom')
+    # Perbaikan Syntax: Label % diletakkan aman di dasar batang
     fig_ytd.add_trace(go.Bar(
         x=df_k_ytd["Kebun"], y=df_k_ytd["Aktual"], name="Aktual YTD", marker_color="#28348A", width=0.35,
         text=[f"{p:,.1f}%" for p in df_k_ytd["Pct"]], textposition="inside", insidetextanchor="bottom",
@@ -85,7 +85,6 @@ st.markdown("---")
 # --- 4. DATA FRAME COMPILATION FOR MTD & YTD TABLE ---
 st.markdown(f"##### 📋 Tabel Summary Yield Performa (MTD vs YTD)")
 
-# Buat kerangka tabel gabungan data kebun
 df_t_kebun = pd.DataFrame({'Kebun': df_k_mtd['Kebun'].unique()})
 
 # Mapping data MTD
@@ -119,14 +118,23 @@ df_total = pd.DataFrame([{
 df_final = pd.concat([df_t_kebun, df_total], ignore_index=True)
 df_final.insert(0, 'No', range(1, len(df_final) + 1))
 
-# Ganti susunan kolom untuk multi-header representatif
 df_final.columns = [
     'No', 'Kebun', 
     'Akt (MTD)', 'Bgt (MTD)', 'Var (MTD)', 'Var MTD (%)',
     'Akt (YTD)', 'Bgt (YTD)', 'Var (YTD)', 'Var YTD (%)'
 ]
 
-# Fungsi pewarnaan kolom deviasi negatif (merah) / positif (hijau)
 def style_variance(val):
     if isinstance(val, (int, float)):
-        color = 'red' if val
+        color = 'red' if val < 0 else 'green'
+        return f'color: {color}; font-weight: bold;'
+    return ''
+
+st.dataframe(
+    df_final.style.format({
+        'Akt (MTD)': '{:,.2f}', 'Bgt (MTD)': '{:,.2f}', 'Var (MTD)': '{:+,.2f}', 'Var MTD (%)': '{:+,.2f}%',
+        'Akt (YTD)': '{:,.2f}', 'Bgt (YTD)': '{:,.2f}', 'Var (YTD)': '{:+,.2f}', 'Var YTD (%)': '{:+,.2f}%'
+    }).map(style_variance, subset=['Var (MTD)', 'Var MTD (%)', 'Var (YTD)', 'Var YTD (%)']),
+    use_container_width=True,
+    hide_index=True
+)
