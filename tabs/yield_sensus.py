@@ -2,73 +2,64 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
-# --- AMBIL DATA DARI CONTEXT GLOBAL ---
+# Ambil data global dari session state app.py (Otomatis memuat Rekap26_Sns.csv)
 df_raw = st.session_state["df_raw"]
 pilihan_bulan = st.session_state["pilihan_bulan"]
 
-# 💡 LOGIKA RENTANG AMAN KHUSUS SENSUS (95% - 105%)
-def format_capaian_sensus(val):
-    try:
-        num = float(val)
-        if 95.0 <= num <= 105.0:
-            return f"{num:.1f}%"
-        elif num < 95.0:
-            return f"🔻 {num:.1f}%"
-        else:
-            return f"🔺 {num:.1f}%"
-    except:
-        return str(val)
+st.markdown(f"### 🎯 Yield Performance terhadap Sensus (Ton/Ha)")
+st.markdown(f"**Periode Analisis:** Bulan {pilihan_bulan} & Kumulatif YTD")
 
-st.subheader("📊 Analisis Kinerja Yield / Tonase (vs SENSUS)")
+# --- PROSES DATA TIMEFRAME (MTD & YTD) ---
+df_mtd = df_raw[df_raw['Bulan'] == pilihan_bulan].copy()
 
-# Filter data bulan berjalan
-df_bulan_ini = df_raw[df_raw["Bulan"] == pilihan_bulan].copy()
+URUTAN_BULAN_STD = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
+pilihan_bulan_std = "AGS" if pilihan_bulan in ["AGUSTUS", "AGS"] else pilihan_bulan
 
-# Agregasi tingkat kebun
-df_kebun = df_bulan_ini.groupby("Kebun", as_index=False).agg({
-    "Luas": "sum",
-    "Kg Akt.": "sum",
-    "Kg Sns.": "sum"
-})
+if pilihan_bulan_std in URUTAN_BULAN_STD:
+    idx_bulan = URUTAN_BULAN_STD.index(pilihan_bulan_std)
+    bulan_ytd = URUTAN_BULAN_STD[:idx_bulan + 1]
+else:
+    bulan_ytd = [pilihan_bulan_std]
 
-# Hitung rasio yield
-df_kebun["Yield Akt"] = (df_kebun["Kg Akt."] / 1000) / df_kebun["Luas"]
-df_kebun["Yield Sns"] = (df_kebun["Kg Sns."] / 1000) / df_kebun["Luas"]
+df_ytd = df_raw[df_raw['Bulan'].isin(bulan_ytd)].copy()
 
-# Hitung % Capaian terhadap Sensus
-df_kebun["% Cap."] = 0.0
-mask = df_kebun["Yield Sns"] > 0
-df_kebun.loc[mask, "% Cap."] = (df_kebun.loc[mask, "Yield Akt"] / df_kebun.loc[mask, "Yield Sns"]) * 100
+# --- AGREGASI DATA KEBUN/AFDELING (Membaca kolom Kg Sns.) ---
+luas_afd = df_ytd.groupby(['Kebun', 'Afdeling'])['Luas'].first().reset_index().groupby('Afdeling')['Luas'].sum()
 
-# Terapkan format panah khusus sensus ke tabel display
-df_display_kebun = df_kebun.copy()
-df_display_kebun["% Cap."] = df_display_kebun["% Cap."].apply(format_capaian_sensus)
+# Grup YTD
+df_afd_ytd = df_ytd.groupby('Afdeling').agg({'Kg Akt.': 'sum', 'Kg Sns.': 'sum'}).reset_index()
+df_afd_ytd['Luas'] = df_afd_ytd['Afdeling'].map(luas_afd)
+df_afd_ytd['Yield_Akt'] = df_afd_ytd['Kg Akt.'] / df_afd_ytd['Luas'] / 1000
+df_afd_ytd['Yield_Sns'] = df_afd_ytd['Kg Sns.'] / df_afd_ytd['Luas'] / 1000
 
-# --- 📊 VISUALISASI GRAFIK ---
-fig = go.Figure()
-fig.add_trace(go.Bar(
-    x=df_kebun["Kebun"],
-    y=df_kebun["Yield Akt"],
-    name="Yield Aktual (Ton/Ha)",
-    marker_color="teal"
-))
-fig.add_trace(go.Scatter(
-    x=df_kebun["Kebun"],
-    y=df_kebun["Yield Sns"],
-    mode="lines+markers",
-    name="Target Sensus",
-    line=dict(color="orange", width=3)
+# --- VISUALISASI GRAFIK KUMULATIF YTD ---
+fig_ytd = go.Figure()
+
+# Batang Aktual (Biru Tua)
+fig_ytd.add_trace(go.Bar(
+    x=df_afd_ytd["Afdeling"], y=df_afd_ytd["Yield_Akt"],
+    name="YTD Aktual", marker_color="#28348A", width=0.4
 ))
 
-fig.update_layout(
-    title=f"Perbandingan Yield Aktual vs Sensus - Bulan {pilihan_bulan}",
-    xaxis_title="Kebun",
-    yaxis_title="Ton / Ha",
-    barmode="group",
-    template="plotly_white"
-)
+# Legenda Target Sensus (Hijau)
+fig_ytd.add_trace(go.Scatter(
+    x=[None], y=[None], mode='lines',
+    line=dict(color='#00B050', width=4), name='Sensus YTD'
+))
 
-st.plotly_chart(fig, use_container_width=True)
+# Gambar Garis Target Sensus & Panah Gap Merah
+for idx, row in df_afd_ytd.iterrows():
+    fig_ytd.add_shape(
+        type="line", x0=idx-0.25, x1=idx+0.25,
+        y0=row["Yield_Sns"], y1=row["Yield_Sns"],
+        line=dict(color="#00B050", width=4)
+    )
+    if row["Yield_Akt"] < row["Yield_Sns"]:
+        fig_ytd.add_annotation(
+            x=idx, y=row["Yield_Sns"], ax=idx, ay=row["Yield_Akt"],
+            xref="x", yref="y", axref="x", ayref="y",
+            showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000'
+        )
 
-st.markdown("### 📋 Ringkasan Data Kebun (Sensus)")
-st.dataframe(df_display_kebun, use_container_width=True)
+fig_ytd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", legend=dict(orientation="h", y=1.1))
+st.plotly_chart(fig_ytd, use_container_width=True)

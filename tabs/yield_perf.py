@@ -2,76 +2,71 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
-# --- PROSES DATA AKUMULASI (YEAR TO DATE - YTD) ---
-URUTAN_BULAN_STANDAR = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
+# Ambil data global dari session state app.py
+df_raw = st.session_state["df_raw"]
+pilihan_bulan = st.session_state["pilihan_bulan"]
 
-# Standarisasi Input Agustus jika dari widget tertulis AGUSTUS
+st.markdown(f"### 🌱 Yield Performance terhadap Budget (Ton/Ha)")
+st.markdown(f"**Periode Analisis:** Bulan {pilihan_bulan} & Kumulatif YTD")
+
+# --- PROSES DATA TIMEFRAME (MTD & YTD) ---
+df_mtd = df_raw[df_raw['Bulan'] == pilihan_bulan].copy()
+
+URUTAN_BULAN_STD = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
 pilihan_bulan_std = "AGS" if pilihan_bulan in ["AGUSTUS", "AGS"] else pilihan_bulan
 
-if pilihan_bulan_std in URUTAN_BULAN_STANDAR:
-    idx_bulan = URUTAN_BULAN_STANDAR.index(pilihan_bulan_std)
-    bulan_ytd = URUTAN_BULAN_STANDAR[:idx_bulan + 1]
+if pilihan_bulan_std in URUTAN_BULAN_STD:
+    idx_bulan = URUTAN_BULAN_STD.index(pilihan_bulan_std)
+    bulan_ytd = URUTAN_BULAN_STD[:idx_bulan + 1]
 else:
-    list_bulan_raw = list(df_raw['Bulan'].unique())
-    if pilihan_bulan_std in list_bulan_raw:
-        idx_bulan = list_bulan_raw.index(pilihan_bulan_std)
-        bulan_ytd = list_bulan_raw[:idx_bulan + 1]
-    else:
-        bulan_ytd = [pilihan_bulan_std]
+    bulan_ytd = [pilihan_bulan_std]
 
-# Filter data YTD menggunakan list bulan standar yang sudah lolos verifikasi
 df_ytd = df_raw[df_raw['Bulan'].isin(bulan_ytd)].copy()
 
-# Pilihan Kebun untuk filter internal tab
-list_kebun = sorted(df_ytd["Kebun"].unique().tolist())
-pilihan_kebun = st.selectbox("Pilih Kebun:", list_kebun, key="yield_kebun_picker")
-df_ytd_filtered = df_ytd[df_ytd["Kebun"] == pilihan_kebun].copy()
+# --- AGREGASI DATA KEBUN/AFDELING ---
+# Menghitung Luas secara adil (first) agar tidak ter-sum berulang akibat baris bulan
+luas_afd = df_ytd.groupby(['Kebun', 'Afdeling'])['Luas'].first().reset_index().groupby('Afdeling')['Luas'].sum()
 
-# Afdeling ytd group
-df_afd_ytd_grp = df_ytd_filtered.groupby('Afdeling').agg({
-    'Kg Akt.': 'sum',
-    'Kg Bgt.': 'sum',
-    'Luas': 'first'
-}).reset_index()
+# Grup MTD
+df_afd_mtd = df_mtd.groupby('Afdeling').agg({'Kg Akt.': 'sum', 'Kg Bgt.': 'sum'}).reset_index()
+df_afd_mtd['Luas'] = df_afd_mtd['Afdeling'].map(luas_afd)
+df_afd_mtd['Yield_Akt'] = df_afd_mtd['Kg Akt.'] / df_afd_mtd['Luas'] / 1000
+df_afd_mtd['Yield_Bgt'] = df_afd_mtd['Kg Bgt.'] / df_afd_mtd['Luas'] / 1000
 
-df_afd_ytd_grp['Yield_Akt'] = df_afd_ytd_grp['Kg Akt.'] / df_afd_ytd_grp['Luas'] / 1000
-df_afd_ytd_grp['Yield_Bgt'] = df_afd_ytd_grp['Kg Bgt.'] / df_afd_ytd_grp['Luas'] / 1000
-df_afd_ytd_grp['Yield_Pct'] = (df_afd_ytd_grp['Yield_Akt'] / df_afd_ytd_grp['Yield_Bgt'] * 100).fillna(0)
+# Grup YTD
+df_afd_ytd = df_ytd.groupby('Afdeling').agg({'Kg Akt.': 'sum', 'Kg Bgt.': 'sum'}).reset_index()
+df_afd_ytd['Luas'] = df_afd_ytd['Afdeling'].map(luas_afd)
+df_afd_ytd['Yield_Akt'] = df_afd_ytd['Kg Akt.'] / df_afd_ytd['Luas'] / 1000
+df_afd_ytd['Yield_Bgt'] = df_afd_ytd['Kg Bgt.'] / df_afd_ytd['Luas'] / 1000
 
-# --- 1. TAMPILAN KARTU METRIK UTAMA ---
-total_prod = df_afd_ytd_grp["Kg Akt."].sum()
-total_luas = df_afd_ytd_grp["Luas"].sum()
-yield_real = total_prod / total_luas if total_luas > 0 else 0
+# --- VISUALISASI GRAFIK KUMULATIF YTD ---
+fig_ytd = go.Figure()
 
-m1, m2, m3 = st.columns(3)
-m1.metric("Total Produksi YTD (Kg)", f"{total_prod:,.0f}".replace(",", "."))
-m2.metric("Total Luas (Ha)", f"{total_luas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-m3.metric("Yield Realisasi YTD (Kg/Ha)", f"{yield_real:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-
-st.markdown("---")
-
-# --- 2. GRAFIK BATANG TUNGGAL ---
-fig = go.Figure()
-fig.add_trace(go.Bar(
-    x=df_afd_ytd_grp["Afdeling"],
-    y=df_afd_ytd_grp["Yield_Akt"],
-    name="Realisasi Ton/Ha",
-    marker_color="rgb(55, 83, 109)"
+# Batang Aktual (Biru Tua)
+fig_ytd.add_trace(go.Bar(
+    x=df_afd_ytd["Afdeling"], y=df_afd_ytd["Yield_Akt"],
+    name="YTD Aktual", marker_color="#28348A", width=0.4
 ))
 
-fig.update_layout(
-    title=f"Grafik Yield per Afdeling - {pilihan_kebun} (YTD s/d {pilihan_bulan})",
-    xaxis_title="Afdeling",
-    yaxis_title="Ton / Ha",
-    template="plotly_white"
-)
-st.plotly_chart(fig, use_container_width=True)
+# Legenda Target (Hijau)
+fig_ytd.add_trace(go.Scatter(
+    x=[None], y=[None], mode='lines',
+    line=dict(color='#00B050', width=4), name='Budget YTD'
+))
 
-# --- 3. TABEL DATA ---
-df_table = df_afd_ytd_grp[["Afdeling", "Luas", "Kg Akt.", "Yield_Akt", "Yield_Pct"]].copy()
-df_table["Luas"] = df_table["Luas"].map('{:,.2f}'.format)
-df_table["Kg Akt."] = df_table["Kg Akt."].map('{:,.0f}'.format)
-df_table["Yield_Akt"] = df_table["Yield_Akt"].map('{:,.2f}'.format)
-df_table["Yield_Pct"] = df_table["Yield_Pct"].map('{:,.2f}%'.format)
+# Gambar Garis Target & Panah Gap Merah
+for idx, row in df_afd_ytd.iterrows():
+    fig_ytd.add_shape(
+        type="line", x0=idx-0.25, x1=idx+0.25,
+        y0=row["Yield_Bgt"], y1=row["Yield_Bgt"],
+        line=dict(color="#00B050", width=4)
+    )
+    if row["Yield_Akt"] < row["Yield_Bgt"]:
+        fig_ytd.add_annotation(
+            x=idx, y=row["Yield_Bgt"], ax=idx, ay=row["Yield_Akt"],
+            xref="x", yref="y", axref="x", ayref="y",
+            showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000'
+        )
 
-st.dataframe(df_table, use_container_width=True)
+fig_ytd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", legend=dict(orientation="h", y=1.1))
+st.plotly_chart(fig_ytd, use_container_width=True)
