@@ -47,36 +47,72 @@ col_g1, col_g2 = st.columns(2)
 with col_g1:
     st.markdown(f"##### 📊 Grafik Yield - Bulan Ini ({pilihan_bulan})")
     fig_mtd = go.Figure()
-    # FIX: Mengubah insidetextanchor menjadi 'start' agar label aman di dasar batang
+    
+    # Batang Aktual
     fig_mtd.add_trace(go.Bar(
         x=df_k_mtd["Kebun"], y=df_k_mtd["Aktual"], name="Aktual MTD", marker_color="#28348A", width=0.35,
         text=[f"{p:,.1f}%" for p in df_k_mtd["Pct"]], textposition="inside", insidetextanchor="start",
         textfont=dict(color="white", size=12, family="Arial Black")
     ))
+    # Garis Target penanda di Legend
     fig_mtd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Budget MTD'))
     
+    # Render Target Line & Kondisi Panah Merah MTD
     for idx, row in df_k_mtd.iterrows():
         fig_mtd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-        if row["Aktual"] < row["Target"]:
-            fig_mtd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
+        
+        # Aturan Panah Merah
+        if row["Pct"] < 90:
+            # Di bawah 90%: Panah mengarah ke ATAS (Ujung di Target, Pangkal di Aktual)
+            fig_mtd.add_annotation(
+                x=idx, y=row["Target"], ax=idx, ay=row["Aktual"],
+                xref="x", yref="y", axref="x", ayref="y",
+                showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000'
+            )
+        elif row["Pct"] > 110:
+            # Di atas 110%: Panah mengarah ke BAWAH (Ujung di Target, Pangkal di Aktual)
+            fig_mtd.add_annotation(
+                x=idx, y=row["Target"], ax=idx, ay=row["Aktual"],
+                xref="x", yref="y", axref="x", ayref="y",
+                showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000'
+            )
+            
     fig_mtd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
     st.plotly_chart(fig_mtd, use_container_width=True)
 
 with col_g2:
     st.markdown(f"##### 📊 Grafik Yield - s.d Bulan Ini (YTD {pilihan_bulan})")
     fig_ytd = go.Figure()
-    # FIX: Mengubah insidetextanchor menjadi 'start' agar label aman di dasar batang
+    
+    # Batang Aktual YTD
     fig_ytd.add_trace(go.Bar(
         x=df_k_ytd["Kebun"], y=df_k_ytd["Aktual"], name="Aktual YTD", marker_color="#28348A", width=0.35,
         text=[f"{p:,.1f}%" for p in df_k_ytd["Pct"]], textposition="inside", insidetextanchor="start",
         textfont=dict(color="white", size=12, family="Arial Black")
     ))
+    # Garis Target penanda di Legend
     fig_ytd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Budget YTD'))
     
+    # Render Target Line & Kondisi Panah Merah YTD
     for idx, row in df_k_ytd.iterrows():
         fig_ytd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-        if row["Aktual"] < row["Target"]:
-            fig_ytd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
+        
+        # Aturan Panah Merah
+        if row["Pct"] < 90:
+            # Di bawah 90%: Panah mengarah ke ATAS (Ujung di Target, Pangkal di Aktual)
+            fig_ytd.add_annotation(
+                x=idx, y=row["Target"], ax=idx, ay=row["Aktual"],
+                xref="x", yref="y", axref="x", ayref="y",
+                showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000'
+            )
+        elif row["Pct"] > 110:
+            # Di atas 110%: Panah mengarah ke BAWAH (Ujung di Target, Pangkal di Aktual)
+            fig_ytd.add_annotation(
+                x=idx, y=row["Target"], ax=idx, ay=row["Aktual"],
+                xref="x", yref="y", axref="x", ayref="y",
+                showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000'
+            )
+            
     fig_ytd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
     st.plotly_chart(fig_ytd, use_container_width=True)
 
