@@ -11,55 +11,88 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. FUNGSI LOAD DATA UTAMA + AUTO MAP KOLOM ---
+# --- 2. FUNGSI LOAD & MERGE DATA ASLI (Rekap26.csv & Rekap26_Sns.csv) ---
 @st.cache_data
 def load_data():
-    file_target = "data_yield.xlsx" # <-- Sesuaikan dengan nama file Excel Bapak
-    df = None
+    file_bgt = "Rekap26.csv"
+    file_sns = "Rekap26_Sns.csv"
     
-    if os.path.exists(file_target):
-        if file_target.endswith('.csv'):
-            df = pd.read_csv(file_target)
-        else:
-            df = pd.read_excel(file_target)
-    else:
-        # Fallback dummy data jika file tidak ditemukan saat dideploy
-        bulan_list = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
-        kebun_list = ['BKB Inti', 'REK Inti', 'SRE Inti']
-        afdeling_list = ['A', 'B', 'C', 'D']
-        rows = []
-        for bln in bulan_list:
-            for kbn in kebun_list:
-                for afd in afdeling_list:
-                    rows.append({
-                        "Bulan": bln, "Kebun": kbn, "Afdeling": afd, "Luas": 500.0,
-                        "Kg Aktual": np.random.randint(400000, 600000),
-                        "Kg Budget": np.random.randint(420000, 580000),
-                        "Kg Sensus": np.random.randint(410000, 590000)
-                    })
-        df = pd.DataFrame(rows)
+    df_bgt = None
+    df_sns = None
+    
+    # 1. Baca File Budget & Aktual (Rekap26.csv)
+    if os.path.exists(file_bgt):
+        try:
+            df_bgt = pd.read_csv(file_bgt, sep=None, engine='python', encoding='utf-8')
+            df_bgt.columns = df_bgt.columns.str.strip().str.upper()
+        except Exception as e:
+            st.error(f"Gagal membaca file {file_bgt}. Error: {e}")
+            
+    # 2. Baca File Sensus (Rekap26_Sns.csv)
+    if os.path.exists(file_sns):
+        try:
+            df_sns = pd.read_csv(file_sns, sep=None, engine='python', encoding='utf-8')
+            df_sns.columns = df_sns.columns.str.strip().str.upper()
+        except Exception as e:
+            st.error(f"Gagal membaca file {file_sns}. Error: {e}")
 
-    # Standarisasi kolom otomatis
-    df.columns = df.columns.str.strip().str.upper()
-    kolom_map = {}
-    for col in df.columns:
-        if col in ['KEBUN', 'ESTATE', 'SITE']: kolom_map[col] = 'Kebun'
-        elif col in ['AFDELING', 'AFD']: kolom_map[col] = 'Afdeling'
-        elif col in ['BULAN', 'MONTH']: kolom_map[col] = 'Bulan'
-        elif col in ['LUAS', 'HA', 'LUAS HA']: kolom_map[col] = 'Luas'
-        elif 'AKT' in col or 'REAL' in col: kolom_map[col] = 'Kg Akt.'
-        elif 'BGT' in col or 'BUD' in col or 'ANGG' in col: kolom_map[col] = 'Kg Bgt.'
-        elif 'SNS' in col or 'SEN' in col or 'PRED' in col: kolom_map[col] = 'Kg Sns.'
+    # JIKA KEDUA FILE ASLI ADA, LAKUKAN MERGE & STANDARISASI
+    if df_bgt is not None and df_sns is not None:
+        # Peta pemetaan standar untuk kolom kunci penggabungan
+        def dapatkan_kolom_map(columns):
+            kolom_map = {}
+            for col in columns:
+                if col in ['KEBUN', 'ESTATE', 'SITE']: kolom_map[col] = 'Kebun'
+                elif col in ['AFDELING', 'AFD']: kolom_map[col] = 'Afdeling'
+                elif col in ['BULAN', 'MONTH']: kolom_map[col] = 'Bulan'
+                elif col in ['LUAS', 'HA', 'LUAS HA']: kolom_map[col] = 'Luas'
+                elif 'AKT' in col or 'REAL' in col: kolom_map[col] = 'Kg Akt.'
+                elif 'BGT' in col or 'BUD' in col or 'ANGG' in col: kolom_map[col] = 'Kg Bgt.'
+                elif 'SNS' in col or 'SEN' in col or 'PRED' in col: kolom_map[col] = 'Kg Sns.'
+            return kolom_map
+
+        df_bgt = df_bgt.rename(columns=dapatkan_kolom_map(df_bgt.columns))
+        df_sns = df_sns.rename(columns=dapatkan_kolom_map(df_sns.columns))
         
-    df = df.rename(columns=kolom_map)
-    
+        # Ambil kolom kunci dasar untuk merge
+        kunci_merge = ['Kebun', 'Afdeling', 'Bulan']
+        kunci_bgt = [col for col in kunci_merge if col in df_bgt.columns]
+        kunci_sns = [col for col in kunci_merge if col in df_sns.columns]
+        
+        kunci_bersama = list(set(kunci_bgt).intersection(set(kunci_sns)))
+        
+        if len(kunci_bersama) >= 2:
+            # Lakukan penggabungan data secara aman (Outer join)
+            df_merged = pd.merge(df_bgt, df_sns[[col for col in df_sns.columns if col not in ['Luas'] or col in kunci_bersama]], on=kunci_bersama, how='outer')
+            df = df_merged
+        else:
+            st.error("Kolom relasi (Kebun/Afdeling/Bulan) di kedua file CSV tidak sinkron.")
+            df = df_bgt
+            
+    elif df_bgt is not None:
+        st.warning("⚠️ Hanya file Rekap26.csv yang terdeteksi. Data Sensus kosong.")
+        df = df_bgt
+    else:
+        # Fallback cadangan mutlak jika dipanggil tanpa file di local testing
+        st.error("⚠️ File Rekap26.csv dan Rekap26_Sns.csv tidak ditemukan di direktori!")
+        return pd.DataFrame(columns=['Bulan', 'Kebun', 'Afdeling', 'Luas', 'Kg Akt.', 'Kg Bgt.', 'Kg Sns.'])
+
+    # Bersihkan spasi dan standardisasi nama bulan
     if 'Bulan' in df.columns:
         df['Bulan'] = df['Bulan'].astype(str).str.strip().str.upper()
         df['Bulan'] = df['Bulan'].replace({"AGUSTUS": "AGS", "MEI": "MEI", "MARET": "MAR"})
 
+    # Isi nilai kosong dengan 0 agar kalkulasi tidak menghasilkan NaN
+    numeric_cols = ['Luas', 'Kg Akt.', 'Kg Bgt.', 'Kg Sns.']
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+        else:
+            df[col] = 0.0
+
     return df
 
-# Eksekusi pemuatan data
+# Eksekusi gabungkan data asli
 df_cleaned = load_data()
 
 # --- 3. INISIALISASI SESSION STATE GLOBAL ---
@@ -68,7 +101,7 @@ st.session_state["df_raw"] = df_cleaned
 # --- 4. SIDEBAR GLOBAL (FILTER BULAN UTAMA) ---
 st.sidebar.markdown("## 🎛️ Filter Utama")
 
-list_bulan_data = sorted(list(st.session_state["df_raw"]["Bulan"].unique()))
+list_bulan_data = sorted(list(st.session_state["df_raw"]["Bulan"].unique())) if not st.session_state["df_raw"].empty else ["AGS"]
 idx_default = list_bulan_data.index("AGS") if "AGS" in list_bulan_data else 0
 
 pilihan_bulan = st.sidebar.selectbox(
