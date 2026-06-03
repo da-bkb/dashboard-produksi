@@ -10,10 +10,27 @@ pilihan_bulan = st.session_state["pilihan_bulan"]
 # Judul utama bersih sesuai format seragam
 st.markdown(f"### 🎯 RJP terhadap Sensus (Janjang/Pokok)")
 
+# --- DETEKSI KOLOM OTOMATIS (Mencegah KeyError) ---
+cols = list(df_raw.columns)
+col_akt = next((c for c in cols if 'akt' in c.lower() and any(x in c.lower() for x in ['jg', 'jjg', 'jan', 'janjang'])), None)
+col_sns = next((c for c in cols if ('sns' in c.lower() or 'sensus' in c.lower()) and any(x in c.lower() for x in ['jg', 'jjg', 'jan', 'janjang'])), None)
+
+# Proteksi jika kolom tidak ditemukan sama sekali
+if not col_akt or not col_sns:
+    st.error(f"❌ **Error: Kolom Janjang/Sensus tidak terdeteksi secara otomatis!**")
+    st.markdown(f"""
+    Aplikasi tidak dapat menemukan kombinasi kolom Janjang Aktual / Sensus di file Anda.
+    * Kolom Aktual ditemukan: `{col_akt}`
+    * Kolom Sensus ditemukan: `{col_sns}`
+    
+    **Silakan periksa daftar nama kolom asli yang terbaca dari file CSV Anda berikut ini:**
+    `{cols}`
+    """)
+    st.stop()
+
 # --- 1. PROSES FILTER TIMEFRAME BERDASARKAN BULAN / CAWU / SEMESTER ---
 URUTAN_BULAN_STD = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
 
-# Mapping rentang MTD dan akumulasi YTD untuk mengakomodasi CAWU & SEMESTER
 if pilihan_bulan == 'CAWU I':
     bulan_mtd_list = ['JAN', 'FEB', 'MAR', 'APR']
     bulan_ytd_list = ['JAN', 'FEB', 'MAR', 'APR']
@@ -38,27 +55,25 @@ else:
     else:
         bulan_ytd_list = [pilihan_bulan_std]
 
-# Memotong dataframe menggunakan (.isin) agar support multi-bulan (macro)
 df_mtd = df_raw[df_raw['Bulan'].isin(bulan_mtd_list)].copy()
 df_ytd = df_raw[df_raw['Bulan'].isin(bulan_ytd_list)].copy()
 
 # --- 2. PERHITUNGAN AGREGASI DATA KEBUN ---
-# Ambil Jumlah Pokok unik per Kebun & Afdeling
 pokok_kebun_mtd = df_mtd.groupby(['Kebun', 'Afdeling'])['Pokok'].first().reset_index().groupby('Kebun')['Pokok'].sum()
 pokok_kebun_ytd = df_ytd.groupby(['Kebun', 'Afdeling'])['Pokok'].first().reset_index().groupby('Kebun')['Pokok'].sum()
 
 # MTD Level Kebun
-df_k_mtd = df_mtd.groupby('Kebun').agg({'Jg Akt.': 'sum', 'Jg Sns.': 'sum'}).reset_index()
+df_k_mtd = df_mtd.groupby('Kebun').agg({col_akt: 'sum', col_sns: 'sum'}).reset_index()
 df_k_mtd['Pokok'] = df_k_mtd['Kebun'].map(pokok_kebun_mtd)
-df_k_mtd['Aktual'] = df_k_mtd['Jg Akt.'] / df_k_mtd['Pokok']
-df_k_mtd['Target'] = df_k_mtd['Jg Sns.'] / df_k_mtd['Pokok']
+df_k_mtd['Aktual'] = df_k_mtd[col_akt] / df_k_mtd['Pokok']
+df_k_mtd['Target'] = df_k_mtd[col_sns] / df_k_mtd['Pokok']
 df_k_mtd['Pct'] = (df_k_mtd['Aktual'] / df_k_mtd['Target'] * 100).fillna(0)
 
 # YTD Level Kebun
-df_k_ytd = df_ytd.groupby('Kebun').agg({'Jg Akt.': 'sum', 'Jg Sns.': 'sum'}).reset_index()
+df_k_ytd = df_ytd.groupby('Kebun').agg({col_akt: 'sum', col_sns: 'sum'}).reset_index()
 df_k_ytd['Pokok'] = df_k_ytd['Kebun'].map(pokok_kebun_ytd)
-df_k_ytd['Aktual'] = df_k_ytd['Jg Akt.'] / df_k_ytd['Pokok']
-df_k_ytd['Target'] = df_k_ytd['Jg Sns.'] / df_k_ytd['Pokok']
+df_k_ytd['Aktual'] = df_k_ytd[col_akt] / df_k_ytd['Pokok']
+df_k_ytd['Target'] = df_k_ytd[col_sns] / df_k_ytd['Pokok']
 df_k_ytd['Pct'] = (df_k_ytd['Aktual'] / df_k_ytd['Target'] * 100).fillna(0)
 
 # --- 3. LAYOUT GRAFIK BERSEBELAHAN (KEBUN) ---
@@ -119,9 +134,9 @@ with col_t1:
     df_t_mtd['Pct'] = (df_t_mtd['Aktual'] / df_t_mtd['Sensus'] * 100) - 100
     
     total_pokok_mtd = pokok_kebun_mtd.sum()
-    site_mtd_akt = df_mtd['Jg Akt.'].sum() / total_pokok_mtd
-    site_mtd_sns = df_mtd['Jg Sns.'].sum() / total_pokok_mtd
-    df_total_mtd = pd.DataFrame([{'Kebun': 'TOTAL SITE', 'Aktual': site_mtd_akt, 'Sensus': site_mtd_sns, 'Var': site_mtd_akt - site_sns, 'Pct': (site_mtd_akt / site_sns * 100) - 100}]) if 'site_sns' in locals() else pd.DataFrame([{'Kebun': 'TOTAL SITE', 'Aktual': site_mtd_akt, 'Sensus': site_mtd_sns, 'Var': site_mtd_akt - site_mtd_sns, 'Pct': (site_mtd_akt / site_mtd_sns * 100) - 100}])
+    site_mtd_akt = df_mtd[col_akt].sum() / total_pokok_mtd
+    site_mtd_sns = df_mtd[col_sns].sum() / total_pokok_mtd
+    df_total_mtd = pd.DataFrame([{'Kebun': 'TOTAL SITE', 'Aktual': site_mtd_akt, 'Sensus': site_mtd_sns, 'Var': site_mtd_akt - site_mtd_sns, 'Pct': (site_mtd_akt / site_mtd_sns * 100) - 100}])
     
     df_final_mtd = pd.concat([df_t_mtd, df_total_mtd], ignore_index=True)
     df_final_mtd.insert(0, 'No', range(1, len(df_final_mtd) + 1))
@@ -136,8 +151,8 @@ with col_t2:
     df_t_ytd['Pct'] = (df_t_ytd['Aktual'] / df_t_ytd['Sensus'] * 100) - 100
     
     total_pokok_ytd = pokok_kebun_ytd.sum()
-    site_ytd_akt = df_ytd['Jg Akt.'].sum() / total_pokok_ytd
-    site_ytd_sns = df_ytd['Jg Sns.'].sum() / total_pokok_ytd
+    site_ytd_akt = df_ytd[col_akt].sum() / total_pokok_ytd
+    site_ytd_sns = df_ytd[col_sns].sum() / total_pokok_ytd
     df_total_ytd = pd.DataFrame([{'Kebun': 'TOTAL SITE', 'Aktual': site_ytd_akt, 'Sensus': site_ytd_sns, 'Var': site_ytd_akt - site_ytd_sns, 'Pct': (site_ytd_akt / site_ytd_sns * 100) - 100}])
     
     df_final_ytd = pd.concat([df_t_ytd, df_total_ytd], ignore_index=True)
@@ -146,9 +161,7 @@ with col_t2:
     st.dataframe(df_final_ytd.style.format({'Aktual (Jg/Pkk)': '{:,.2f}', 'Sensus (Jg/Pkk)': '{:,.2f}', 'Gap (Jg/Pkk)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Jg/Pkk)']).map(style_var_fill_koreksi, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_rjp_sns_kebun_ytd")
 
 
-# =========================================================================
-# --- 5. SUB DETAIL PER AFDELING (SENSUS) ---
-# =========================================================================
+# --- 5. SUB DETAIL PER AFDELING ---
 st.markdown("---")
 st.markdown("### 🔎 Detail per Afdeling")
 
@@ -162,23 +175,19 @@ if not df_m_afd.empty:
     luas_afd_mtd = df_m_afd.groupby('Afdeling')['Pokok'].first()
     luas_afd_ytd = df_y_afd.groupby('Afdeling')['Pokok'].first()
 
-    # MTD Afdeling
-    df_a_mtd = df_m_afd.groupby('Afdeling').agg({'Jg Akt.': 'sum', 'Jg Sns.': 'sum'}).reset_index()
+    df_a_mtd = df_m_afd.groupby('Afdeling').agg({col_akt: 'sum', col_sns: 'sum'}).reset_index()
     df_a_mtd['Pokok'] = df_a_mtd['Afdeling'].map(luas_afd_mtd)
-    df_a_mtd['Aktual'] = df_a_mtd['Jg Akt.'] / df_a_mtd['Pokok']
-    df_a_mtd['Target'] = df_a_mtd['Jg Sns.'] / df_a_mtd['Pokok']
+    df_a_mtd['Aktual'] = df_a_mtd[col_akt] / df_a_mtd['Pokok']
+    df_a_mtd['Target'] = df_a_mtd[col_sns] / df_a_mtd['Pokok']
     df_a_mtd['Pct'] = (df_a_mtd['Aktual'] / df_a_mtd['Target'] * 100).fillna(0)
 
-    # YTD Afdeling
-    df_a_ytd = df_y_afd.groupby('Afdeling').agg({'Jg Akt.': 'sum', 'Jg Sns.': 'sum'}).reset_index()
+    df_a_ytd = df_y_afd.groupby('Afdeling').agg({col_akt: 'sum', col_sns: 'sum'}).reset_index()
     df_a_ytd['Pokok'] = df_a_ytd['Afdeling'].map(luas_afd_ytd)
-    df_a_ytd['Aktual'] = df_a_ytd['Jg Akt.'] / df_a_ytd['Pokok']
-    df_a_ytd['Target'] = df_a_ytd['Jg Sns.'] / df_a_ytd['Pokok']
+    df_a_ytd['Aktual'] = df_a_ytd[col_akt] / df_a_ytd['Pokok']
+    df_a_ytd['Target'] = df_a_ytd[col_sns] / df_a_ytd['Pokok']
     df_a_ytd['Pct'] = (df_a_ytd['Aktual'] / df_a_ytd['Target'] * 100).fillna(0)
 
-    # LAYOUT GRAFIK AFDELING
     col_ga1, col_ga2 = st.columns(2)
-    
     with col_ga1:
         st.markdown(f"##### 📊 RJP Per Afdeling ({kebun_terpilih}) - {pilihan_bulan}")
         fig_amtd = go.Figure()
@@ -203,16 +212,13 @@ if not df_m_afd.empty:
         fig_aytd.update_layout(template="plotly_white", yaxis_title="Janjang/Pokok", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
         st.plotly_chart(fig_aytd, use_container_width=True, key="chart_rjp_sns_afd_ytd")
 
-    # LAYOUT TABEL AFDELING
     col_ta1, col_ta2 = st.columns(2)
-    
     with col_ta1:
         st.markdown(f"##### 📋 Data RJP Per Afdeling - {pilihan_bulan}")
         df_ta_mtd = df_a_mtd[['Afdeling', 'Aktual', 'Target']].copy()
         df_ta_mtd.columns = ['Afdeling', 'Aktual', 'Sensus']
         df_ta_mtd['Var'] = df_ta_mtd['Aktual'] - df_ta_mtd['Sensus']
         df_ta_mtd['Pct'] = (df_ta_mtd['Aktual'] / df_ta_mtd['Sensus'] * 100) - 100
-        
         df_ta_mtd.insert(0, 'No', range(1, len(df_ta_mtd) + 1))
         df_ta_mtd.columns = ['No', 'Afdeling', 'Aktual (Jg/Pkk)', 'Sensus (Jg/Pkk)', 'Gap (Jg/Pkk)', 'Var (%)']
         st.dataframe(df_ta_mtd.style.format({'Aktual (Jg/Pkk)': '{:,.2f}', 'Sensus (Jg/Pkk)': '{:,.2f}', 'Gap (Jg/Pkk)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Jg/Pkk)']).map(style_var_fill_koreksi, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_rjp_sns_afd_mtd")
@@ -223,7 +229,6 @@ if not df_m_afd.empty:
         df_ta_ytd.columns = ['Afdeling', 'Aktual', 'Sensus']
         df_ta_ytd['Var'] = df_ta_ytd['Aktual'] - df_ta_ytd['Sensus']
         df_ta_ytd['Pct'] = (df_ta_ytd['Aktual'] / df_ta_ytd['Sensus'] * 100) - 100
-        
         df_ta_ytd.insert(0, 'No', range(1, len(df_ta_ytd) + 1))
         df_ta_ytd.columns = ['No', 'Afdeling', 'Aktual (Jg/Pkk)', 'Sensus (Jg/Pkk)', 'Gap (Jg/Pkk)', 'Var (%)']
         st.dataframe(df_ta_ytd.style.format({'Aktual (Jg/Pkk)': '{:,.2f}', 'Sensus (Jg/Pkk)': '{:,.2f}', 'Gap (Jg/Pkk)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Jg/Pkk)']).map(style_var_fill_koreksi, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_rjp_sns_afd_ytd")
