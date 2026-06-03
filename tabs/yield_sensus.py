@@ -93,23 +93,20 @@ with col_g2:
 
 
 # --- 4. DATA FRAME COMPILATION & STYLING FOR TABLES ---
-# Logika teks warna untuk kolom Gap (Ton/Ha)
-def style_gap(val):
-    if isinstance(val, (int, float)):
-        color = 'red' if val < 0 else 'green'
-        return f'color: {color}; font-weight: bold;'
-    return ''
 
-# Logika FILL BACKGROUND warna untuk kolom Var (%) sesuai instruksi Bapak
-def style_var_fill(val):
+# Kolom Gap: Warna teks dipaksa hitam tebal
+def style_gap_black(val):
+    return 'color: black; font-weight: bold;'
+
+# Kolom Var: Warna background disesuaikan, warna teks dipaksa tetap hitam tebal
+def style_var_fill_koreksi(val):
     if isinstance(val, (int, float)):
-        # Batas ditranslasikan dari % Capaian (val adalah % Capaian - 100)
-        if val > 5: # Capaian > 105%
-            return 'background-color: #FCE4D6; color: #C65911; font-weight: bold; text-align: right;' # Soft Orange / Oranye
-        elif -5 <= val <= 5: # Capaian 95% - 105%
-            return 'background-color: #E2EFDA; color: #375623; font-weight: bold; text-align: right;' # Soft Green / Hijau
-        else: # Capaian < 95%
-            return 'background-color: #FCE4D6; color: #C00000; font-weight: bold; text-align: right;' # Soft Red / Merah
+        if val > 5:  # Di atas +5%
+            return 'background-color: #FFC000; color: black; font-weight: bold; text-align: right;' # Oranye standard
+        elif -5 <= val <= 5:  # Antara -5% sampai +5%
+            return 'background-color: #A9D08E; color: black; font-weight: bold; text-align: right;' # Hijau standard
+        else:  # Di bawah -5%
+            return 'background-color: #FF8585; color: black; font-weight: bold; text-align: right;' # Merah soft
     return ''
 
 # CSS global untuk memaksa judul kolom rata tengah
@@ -148,9 +145,9 @@ with col_t1:
     st.dataframe(
         df_final_mtd.style.format({
             'Aktual (Ton/Ha)': '{:,.2f}', 'Sensus (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'
-        }).map(style_gap, subset=['Gap (Ton/Ha)'])
-          .map(style_var_fill, subset=['Var (%)'])
-          .set_properties(subset=['No'], **{'text-align': 'center'}), # MEMAKSA DATA NO RATA TENGAH
+        }).map(style_gap_black, subset=['Gap (Ton/Ha)'])
+          .map(style_var_fill_koreksi, subset=['Var (%)'])
+          .set_properties(subset=['No'], **{'text-align': 'center'}),  # Memaksa data angka No rata tengah
         use_container_width=True, hide_index=True
     )
 
@@ -181,8 +178,8 @@ with col_t2:
     st.dataframe(
         df_final_ytd.style.format({
             'Aktual (Ton/Ha)': '{:,.2f}', 'Sensus (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'
-        }).map(style_gap, subset=['Gap (Ton/Ha)'])
-          .map(style_var_fill, subset=['Var (%)'])
-          .set_properties(subset=['No'], **{'text-align': 'center'}), # MEMAKSA DATA NO RATA TENGAH
+        }).map(style_gap_black, subset=['Gap (Ton/Ha)'])
+          .map(style_var_fill_koreksi, subset=['Var (%)'])
+          .set_properties(subset=['No'], **{'text-align': 'center'}),  # Memaksa data angka No rata tengah
         use_container_width=True, hide_index=True
     )
