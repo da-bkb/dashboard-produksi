@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import os
 
 # --- 1. KONFIGURASI HALAMAN UTAMA ---
@@ -10,57 +11,76 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. FUNGSI SIMULASI / LOAD DATA MENTAH ---
+# --- 2. FUNGSI LOAD DATA UTAMA + AUTO MAP KOLOM ---
 @st.cache_data
 def load_data():
     """
-    Fungsi untuk membaca data. 
-    Silakan sesuaikan path atau nama file dengan data aktual Bapak.
-    Di bawah ini adalah struktur dummy jika file belum ditemukan.
+    Membaca data asli dari file Excel/CSV. 
+    Jika tidak ditemukan, akan otomatis fallback ke data simulasi yang aman.
     """
-    # Contoh pembacaan jika menggunakan excel:
-    # if os.path.exists("data_yield.xlsx"):
-    #     return pd.read_excel("data_yield.xlsx")
+    file_target = "data_yield.xlsx" # <-- Silakan ubah nama file sesuai file Bapak
+    df = None
     
-    # Dummy data generator agar aplikasi langsung jalan tanpa error data hilang
-    np_random = pd.Series(range(1, 100)) # Placeholder pemicu
-    bulan_list = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
-    kebun_list = ['BKB Inti', 'REK Inti', 'SRE Inti']
-    afdeling_list = ['A', 'B', 'C', 'D']
-    
-    rows = []
-    for bln in bulan_list:
-        for kbn in kebun_list:
-            for afd in afdeling_list:
-                rows.append({
-                    "Bulan": bln,
-                    "Kebun": kbn,
-                    "Afdeling": afd,
-                    "Luas": 500.0 if afd in ['A', 'B'] else 450.0,
-                    "Kg Akt.": pd.Series(range(400000, 600000)).sample(1).values[0],
-                    "Kg Bgt.": pd.Series(range(420000, 580000)).sample(1).values[0],
-                    "Kg Sns.": pd.Series(range(410000, 590000)).sample(1).values[0]
-                })
-    return pd.DataFrame(rows)
+    if os.path.exists(file_target):
+        if file_target.endswith('.csv'):
+            df = pd.read_csv(file_target)
+        else:
+            df = pd.read_excel(file_target)
+    else:
+        # Taktik cadangan (Dummy Data Generator) agar app tidak crash saat testing
+        bulan_list = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
+        kebun_list = ['BKB Inti', 'REK Inti', 'SRE Inti']
+        afdeling_list = ['A', 'B', 'C', 'D']
+        rows = []
+        for bln in bulan_list:
+            for kbn in kebun_list:
+                for afd in afdeling_list:
+                    rows.append({
+                        "Bulan": bln, "Kebun": kbn, "Afdeling": afd, "Luas": 500.0,
+                        "Kg Aktual": np.random.randint(400000, 600000),
+                        "Kg Budget": np.random.randint(420000, 580000),
+                        "Kg Sensus": np.random.randint(410000, 590000)
+                    })
+        df = pd.DataFrame(rows)
 
-# Load data ke dalam cache
-df_input = load_data()
+    # --- STANDARISASI KOLOM OTOMATIS (Mencegah KeyError) ---
+    # Hapus spasi di depan/belakang nama kolom dan ubah ke huruf besar
+    df.columns = df.columns.str.strip().str.upper()
+    
+    # Deteksi & Mapping Fleksibel ke penamaan internal aplikasi
+    kolom_map = {}
+    
+    # 1. Cari kolom Kebun
+    for col in df.columns:
+        if col in ['KEBUN', 'ESTATE', 'SITE']: kolom_map[col] = 'Kebun'
+        elif col in ['AFDELING', 'AFD']: kolom_map[col] = 'Afdeling'
+        elif col in ['BULAN', 'MONTH']: kolom_map[col] = 'Bulan'
+        elif col in ['LUAS', 'HA', 'LUAS HA']: kolom_map[col] = 'Luas'
+        elif 'AKT' in col or 'REAL' in col: kolom_map[col] = 'Kg Akt.'
+        elif 'BGT' in col or 'BUD' in col or 'ANGG' in col: kolom_map[col] = 'Kg Bgt.'
+        elif 'SNS' in col or 'SEN' in col or 'PRED' in col: kolom_map[col] = 'Kg Sns.'
+        
+    df = df.rename(columns=kolom_map)
+    
+    # Standarisasi isi teks Bulan agar seragam huruf besar semua
+    if 'Bulan' in df.columns:
+        df['Bulan'] = df['Bulan'].astype(str).str.strip().str.upper()
+        df['Bulan'] = df['Bulan'].replace({"AGUSTUS": "AGS", "MEI": "MEI", "MARET": "MAR"})
+
+    return df
+
+# Eksekusi pemuatan data
+df_cleaned = load_data()
 
 # --- 3. INISIALISASI SESSION STATE GLOBAL ---
-if "df_raw" not in st.session_state:
-    st.session_state["df_raw"] = df_input
+st.session_state["df_raw"] = df_cleaned
 
 # --- 4. SIDEBAR GLOBAL (FILTER BULAN UTAMA) ---
 st.sidebar.image("https://via.placeholder.com/150x50?text=LOGO+PERUSAHAAN", use_container_width=True)
 st.sidebar.markdown("## 🎛️ Filter Utama")
 
-# Daftar pilihan bulan berdasarkan data yang ada
-list_bulan_data = list(st.session_state["df_raw"]["Bulan"].unique())
-if "AGS" in list_bulan_data and "AGUSTUS" not in list_bulan_data:
-    # Antisipasi jika user mencari kata kunci panjang atau pendek
-    idx_default = list_bulan_data.index("AGS") if "AGS" in list_bulan_data else 0
-else:
-    idx_default = 0
+list_bulan_data = sorted(list(st.session_state["df_raw"]["Bulan"].unique()))
+idx_default = list_bulan_data.index("AGS") if "AGS" in list_bulan_data else 0
 
 pilihan_bulan = st.sidebar.selectbox(
     "Pilih Operasional Bulan:", 
@@ -68,7 +88,7 @@ pilihan_bulan = st.sidebar.selectbox(
     index=idx_default
 )
 
-# Simpan pilihan bulan ke session state agar bisa diakses file tab lain
+# Simpan filter bulan terpilih secara global
 st.session_state["pilihan_bulan"] = pilihan_bulan
 
 st.sidebar.markdown("---")
@@ -78,35 +98,30 @@ st.sidebar.info(
     "2. Untuk melihat performa makro, silakan buka Tab **Yield Periodik**."
 )
 
-
 # --- 5. STRUKTUR NAVIGASI UTAMA (TABS) ---
 st.write("# 📑 Dashboard Performa Produksi (Yield)")
 st.write("Sistem Analisa Produktivitas Blok, Afdeling, hingga Tingkat Regional Estate.")
 
-# Inisialisasi 3 Tab Utama sesuai alur kerja
 tab_budget, tab_sensus, tab_periodik = st.tabs([
     "📈 Yield vs Budget", 
     "🎯 Yield vs Sensus", 
     "📅 Yield Periodik"
 ])
 
-# --- 6. PEMANGGILAN MODUL FILE TIAP TAB ---
 with tab_budget:
     try:
-        # Mengimpor modul secara dinamis dan menjalankannya jika dibungkus fungsi,
-        # atau langsung menjalankan script jika ditulis secara top-level execution.
         from tabs import yield_perf
-    except ImportError:
-        st.error("Gagal memuat file `tabs/yield_perf.py`. Pastikan folder dan file tersebut ada.")
+    except ImportError as e:
+        st.error(f"Gagal memuat file `tabs/yield_perf.py`. Error: {e}")
 
 with tab_sensus:
     try:
         from tabs import yield_sensus
-    except ImportError:
-        st.error("Gagal memuat file `tabs/yield_sensus.py`. Pastikan folder dan file tersebut ada.")
+    except ImportError as e:
+        st.error(f"Gagal memuat file `tabs/yield_sensus.py`. Error: {e}")
 
 with tab_periodik:
     try:
         from tabs import yield_periodik
-    except ImportError:
-        st.error("Gagal memuat file `tabs/yield_periodik.py`. Pastikan folder dan file tersebut ada.")
+    except ImportError as e:
+        st.error(f"Gagal memuat file `tabs/yield_periodik.py`. Error: {e}")
