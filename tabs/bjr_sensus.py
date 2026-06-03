@@ -63,11 +63,9 @@ df_mtd = df_raw[df_raw['Bulan'].isin(bulan_mtd_list)].copy()
 df_ytd = df_raw[df_raw['Bulan'].isin(bulan_ytd_list)].copy()
 
 # --- 2. PERHITUNGAN AGREGASI DATA KEBUN ---
-# Ambil rerata sensus murni dengan mengabaikan baris bernilai nol saat menghitung mean target
 df_k_mtd = df_mtd.groupby('Kebun').agg({col_akt_kg: 'sum', col_akt_jjg: 'sum', col_sns_bjr: lambda x: x[x > 0].mean() if len(x[x > 0]) > 0 else 0}).reset_index()
 df_k_mtd['Aktual'] = (df_k_mtd[col_akt_kg] / df_k_mtd[col_akt_jjg]).fillna(0)
 df_k_mtd['Target'] = df_k_mtd[col_sns_bjr]
-# Penanganan anti inf% jika target bernilai 0
 df_k_mtd['Pct'] = np.where(df_k_mtd['Target'] > 0, (df_k_mtd['Aktual'] / df_k_mtd['Target'] * 100), 0)
 
 df_k_ytd = df_ytd.groupby('Kebun').agg({col_akt_kg: 'sum', col_akt_jjg: 'sum', col_sns_bjr: lambda x: x[x > 0].mean() if len(x[x > 0]) > 0 else 0}).reset_index()
@@ -117,15 +115,17 @@ with col_g2:
 def style_gap_black(val):
     return 'color: black; font-weight: bold;'
 
+# 👇 --- KOREKSI FUNGSI WARNA DISESUAIKAN PERINTAH BARU BAPAK --- 👇
 def style_bjr_var_fill(val):
     if isinstance(val, (int, float)):
-        if val > 0: 
-            return 'background-color: #A9D08E; color: black; font-weight: bold; text-align: right;'
-        elif -5 <= val <= -4.5: 
-            return 'background-color: #FFF2CC; color: black; font-weight: bold; text-align: right;'
-        elif val < -5: 
-            return 'background-color: #FF8585; color: black; font-weight: bold; text-align: right;'
+        if val < -5: 
+            return 'background-color: #FF8585; color: black; font-weight: bold; text-align: right;' # MERAH
+        elif val < 0: 
+            return 'background-color: #FFF2CC; color: black; font-weight: bold; text-align: right;' # KUNING
+        elif val >= 0: 
+            return 'background-color: #A9D08E; color: black; font-weight: bold; text-align: right;' # HIJAU
     return ''
+# 👆 ------------------------------------------------------------- 👆
 
 st.markdown("<style>th { text-align: center !important; }</style>", unsafe_allow_html=True)
 col_t1, col_t2 = st.columns(2)
