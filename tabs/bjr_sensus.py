@@ -27,6 +27,9 @@ if not col_akt_kg or not col_akt_jjg or not col_sns_bjr:
     """)
     st.stop()
 
+# Konversi kolom target ke numeric untuk mengantisipasi data teks/strip agar tidak TypeError
+df_raw[col_sns_bjr] = pd.to_numeric(df_raw[col_sns_bjr], errors='coerce').fillna(0)
+
 # --- 1. PROSES FILTER TIMEFRAME BERDASARKAN BULAN / CAWU / SEMESTER ---
 URUTAN_BULAN_STD = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
 
