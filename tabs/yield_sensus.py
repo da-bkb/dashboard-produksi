@@ -93,13 +93,26 @@ with col_g2:
 
 
 # --- 4. DATA FRAME COMPILATION & STYLING FOR TABLES ---
-def style_variance(val):
+# Logika teks warna untuk kolom Gap (Ton/Ha)
+def style_gap(val):
     if isinstance(val, (int, float)):
         color = 'red' if val < 0 else 'green'
         return f'color: {color}; font-weight: bold;'
     return ''
 
-# CSS injected untuk membuat Judul Kolom (Header) rata tengah secara global di dataframe
+# Logika FILL BACKGROUND warna untuk kolom Var (%) sesuai instruksi Bapak
+def style_var_fill(val):
+    if isinstance(val, (int, float)):
+        # Batas ditranslasikan dari % Capaian (val adalah % Capaian - 100)
+        if val > 5: # Capaian > 105%
+            return 'background-color: #FCE4D6; color: #C65911; font-weight: bold; text-align: right;' # Soft Orange / Oranye
+        elif -5 <= val <= 5: # Capaian 95% - 105%
+            return 'background-color: #E2EFDA; color: #375623; font-weight: bold; text-align: right;' # Soft Green / Hijau
+        else: # Capaian < 95%
+            return 'background-color: #FCE4D6; color: #C00000; font-weight: bold; text-align: right;' # Soft Red / Merah
+    return ''
+
+# CSS global untuk memaksa judul kolom rata tengah
 st.markdown("""
     <style>
         th { text-align: center !important; }
@@ -115,8 +128,6 @@ with col_t1:
     df_t_mtd['Aktual'] = df_t_mtd['Kebun'].map(df_k_mtd.set_index('Kebun')['Aktual'])
     df_t_mtd['Sensus'] = df_t_mtd['Kebun'].map(df_k_mtd.set_index('Kebun')['Target'])
     df_t_mtd['Var'] = df_t_mtd['Aktual'] - df_t_mtd['Sensus']
-    
-    # RUMUS BARU: Var (%) = % Capaian - 100
     df_t_mtd['Pct'] = df_t_mtd['Kebun'].map(df_k_mtd.set_index('Kebun')['Pct']) - 100
     
     # Total Site MTD
@@ -132,15 +143,14 @@ with col_t1:
     
     df_final_mtd = pd.concat([df_t_mtd, df_total_mtd], ignore_index=True)
     df_final_mtd.insert(0, 'No', range(1, len(df_final_mtd) + 1))
-    
-    # KOREKSI NAMA KOLOM SESUAI INSTRUKSI
     df_final_mtd.columns = ['No', 'Kebun', 'Aktual (Ton/Ha)', 'Sensus (Ton/Ha)', 'Gap (Ton/Ha)', 'Var (%)']
     
     st.dataframe(
         df_final_mtd.style.format({
             'Aktual (Ton/Ha)': '{:,.2f}', 'Sensus (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'
-        }).map(style_variance, subset=['Gap (Ton/Ha)', 'Var (%)'])
-          .set_properties(subset=['No'], **{'text-align': 'center'}),  # KOLOM NO JADI RATA TENGAH
+        }).map(style_gap, subset=['Gap (Ton/Ha)'])
+          .map(style_var_fill, subset=['Var (%)'])
+          .set_properties(subset=['No'], **{'text-align': 'center'}), # MEMAKSA DATA NO RATA TENGAH
         use_container_width=True, hide_index=True
     )
 
@@ -151,8 +161,6 @@ with col_t2:
     df_t_ytd['Aktual'] = df_t_ytd['Kebun'].map(df_k_ytd.set_index('Kebun')['Aktual'])
     df_t_ytd['Sensus'] = df_t_ytd['Kebun'].map(df_k_ytd.set_index('Kebun')['Target'])
     df_t_ytd['Var'] = df_t_ytd['Aktual'] - df_t_ytd['Sensus']
-    
-    # RUMUS BARU: Var (%) = % Capaian - 100
     df_t_ytd['Pct'] = df_t_ytd['Kebun'].map(df_k_ytd.set_index('Kebun')['Pct']) - 100
     
     # Total Site YTD
@@ -168,14 +176,13 @@ with col_t2:
     
     df_final_ytd = pd.concat([df_t_ytd, df_total_ytd], ignore_index=True)
     df_final_ytd.insert(0, 'No', range(1, len(df_final_ytd) + 1))
-    
-    # KOREKSI NAMA KOLOM SESUAI INSTRUKSI
     df_final_ytd.columns = ['No', 'Kebun', 'Aktual (Ton/Ha)', 'Sensus (Ton/Ha)', 'Gap (Ton/Ha)', 'Var (%)']
     
     st.dataframe(
         df_final_ytd.style.format({
             'Aktual (Ton/Ha)': '{:,.2f}', 'Sensus (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'
-        }).map(style_variance, subset=['Gap (Ton/Ha)', 'Var (%)'])
-          .set_properties(subset=['No'], **{'text-align': 'center'}),  # KOLOM NO JADI RATA TENGAH
+        }).map(style_gap, subset=['Gap (Ton/Ha)'])
+          .map(style_var_fill, subset=['Var (%)'])
+          .set_properties(subset=['No'], **{'text-align': 'center'}), # MEMAKSA DATA NO RATA TENGAH
         use_container_width=True, hide_index=True
     )
