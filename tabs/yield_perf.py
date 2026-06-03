@@ -84,7 +84,8 @@ with col_g1:
         if row["Pct"] < 90 or row["Pct"] > 110:
             fig_mtd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
     fig_mtd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
-    st.plotly_chart(fig_mtd, use_container_width=True)
+    # Ditambahkan parameter key unik
+    st.plotly_chart(fig_mtd, use_container_width=True, key="chart_yield_perf_kebun_mtd")
 
 with col_g2:
     st.markdown(f"##### 📊 Yield Per Kebun - s.d ({pilihan_bulan})")
@@ -100,7 +101,8 @@ with col_g2:
         if row["Pct"] < 90 or row["Pct"] > 110:
             fig_ytd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
     fig_ytd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
-    st.plotly_chart(fig_ytd, use_container_width=True)
+    # Ditambahkan parameter key unik
+    st.plotly_chart(fig_ytd, use_container_width=True, key="chart_yield_perf_kebun_ytd")
 
 # --- 4. DATA FRAME COMPILATION & STYLING FOR TABLES (KEBUN) ---
 def style_gap_black(val):
@@ -201,7 +203,8 @@ if not df_m_afd.empty:
             if row["Pct"] < 90 or row["Pct"] > 110:
                 fig_amtd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
         fig_amtd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
-        st.plotly_chart(fig_amtd, use_container_width=True)
+        # Ditambahkan parameter key unik
+        st.plotly_chart(fig_amtd, use_container_width=True, key="chart_yield_perf_afd_mtd")
 
     with col_ga2:
         st.markdown(f"##### 📊 Yield Per Afdeling ({kebun_terpilled}) - s.d ({pilihan_bulan})")
@@ -213,7 +216,8 @@ if not df_m_afd.empty:
             if row["Pct"] < 90 or row["Pct"] > 110:
                 fig_aytd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
         fig_aytd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
-        st.plotly_chart(fig_aytd, use_container_width=True)
+        # Ditambahkan parameter key unik
+        st.plotly_chart(fig_aytd, use_container_width=True, key="chart_yield_perf_afd_ytd")
 
     # LAYOUT TABEL AFDELING
     col_ta1, col_ta2 = st.columns(2)
