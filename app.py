@@ -24,9 +24,9 @@ def load_data(tipe_target):
         return pd.DataFrame(), nama_target
 
     try:
-        df = pd.read_csv(file_name, sep=\";\", decimal=\",\")
+        df = pd.read_csv(file_name, sep=";", decimal=",")
     except:
-        df = pd.read_csv(file_name, sep=\",\", decimal=\",\")
+        df = pd.read_csv(file_name, sep=",", decimal=",")
         
     # Bersihkan spasi liar pada nama kolom
     df.columns = df.columns.str.strip()
