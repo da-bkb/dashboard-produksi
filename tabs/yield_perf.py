@@ -3,176 +3,102 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
-df_raw = st.session_state["df_raw"].copy()
-pilihan_bulan = st.session_state["pilihan_bulan"]
+def render_yield_perf():
+    df_raw = st.session_state["df_raw"].copy()
+    pilihan_bulan = st.session_state["pilihan_bulan"]
 
-st.markdown(f"### 🌱 Yield terhadap Budget (Bulan Operasional: {pilihan_bulan})")
+    st.markdown(f"### 🌱 Yield terhadap Budget (Bulan Operasional: {pilihan_bulan})")
 
-# --- 1. PROSES FILTER TIMEFRAME (MTD & YTD) ---
-df_mtd = df_raw[df_raw['Bulan'] == pilihan_bulan].copy()
+    # Timeframe MTD & YTD
+    df_mtd = df_raw[df_raw['Bulan'] == pilihan_bulan].copy()
+    URUTAN_BULAN_STD = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
+    pilihan_bulan_std = "AGS" if pilihan_bulan in ["AGUSTUS", "AGS"] else pilihan_bulan
 
-URUTAN_BULAN_STD = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
-pilihan_bulan_std = "AGS" if pilihan_bulan in ["AGUSTUS", "AGS"] else pilihan_bulan
+    if pilihan_bulan_std in URUTAN_BULAN_STD:
+        idx_bulan = URUTAN_BULAN_STD.index(pilihan_bulan_std)
+        bulan_ytd = URUTAN_BULAN_STD[:idx_bulan + 1]
+    else:
+        bulan_ytd = [pilihan_bulan_std]
+    df_ytd = df_raw[df_raw['Bulan'].isin(bulan_ytd)].copy()
 
-if pilihan_bulan_std in URUTAN_BULAN_STD:
-    idx_bulan = URUTAN_BULAN_STD.index(pilihan_bulan_std)
-    bulan_ytd = URUTAN_BULAN_STD[:idx_bulan + 1]
-else:
-    bulan_ytd = [pilihan_bulan_std]
+    # Agregasi Kebun
+    luas_kebun_mtd = df_mtd.groupby(['Kebun', 'Afdeling'])['Luas'].first().reset_index().groupby('Kebun')['Luas'].sum()
+    luas_kebun_ytd = df_ytd.groupby(['Kebun', 'Afdeling'])['Luas'].first().reset_index().groupby('Kebun')['Luas'].sum()
 
-df_ytd = df_raw[df_raw['Bulan'].isin(bulan_ytd)].copy()
+    df_k_mtd = df_mtd.groupby('Kebun').agg({'Kg Akt.': 'sum', 'Kg Bgt.': 'sum'}).reset_index()
+    df_k_mtd['Luas'] = df_k_mtd['Kebun'].map(luas_kebun_mtd)
+    df_k_mtd['Aktual'] = df_k_mtd['Kg Akt.'] / df_k_mtd['Luas'] / 1000
+    df_k_mtd['Target'] = df_k_mtd['Kg Bgt.'] / df_k_mtd['Luas'] / 1000
+    df_k_mtd['Pct'] = (df_k_mtd['Aktual'] / df_k_mtd['Target'] * 100).fillna(0)
 
-# --- 2. PERHITUNGAN AGREGASI DATA KEBUN ---
-luas_kebun_mtd = df_mtd.groupby(['Kebun', 'Afdeling'])['Luas'].first().reset_index().groupby('Kebun')['Luas'].sum()
-luas_kebun_ytd = df_ytd.groupby(['Kebun', 'Afdeling'])['Luas'].first().reset_index().groupby('Kebun')['Luas'].sum()
+    df_k_ytd = df_ytd.groupby('Kebun').agg({'Kg Akt.': 'sum', 'Kg Bgt.': 'sum'}).reset_index()
+    df_k_ytd['Luas'] = df_k_ytd['Kebun'].map(luas_kebun_ytd)
+    df_k_ytd['Aktual'] = df_k_ytd['Kg Akt.'] / df_k_ytd['Luas'] / 1000
+    df_k_ytd['Target'] = df_k_ytd['Kg Bgt.'] / df_k_ytd['Luas'] / 1000
+    df_k_ytd['Pct'] = (df_k_ytd['Aktual'] / df_k_ytd['Target'] * 100).fillna(0)
 
-# MTD Level Kebun
-df_k_mtd = df_mtd.groupby('Kebun').agg({'Kg Akt.': 'sum', 'Kg Bgt.': 'sum'}).reset_index()
-df_k_mtd['Luas'] = df_k_mtd['Kebun'].map(luas_kebun_mtd)
-df_k_mtd['Aktual'] = df_k_mtd['Kg Akt.'] / df_k_mtd['Luas'] / 1000
-df_k_mtd['Target'] = df_k_mtd['Kg Bgt.'] / df_k_mtd['Luas'] / 1000
-df_k_mtd['Pct'] = (df_k_mtd['Aktual'] / df_k_mtd['Target'] * 100).fillna(0)
+    # Grafik Bersebelahan
+    col_g1, col_g2 = st.columns(2)
+    with col_g1:
+        st.markdown("##### 📊 Yield Per Kebun - Bulan Ini")
+        fig_mtd = go.Figure()
+        fig_mtd.add_trace(go.Bar(x=df_k_mtd["Kebun"], y=df_k_mtd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35, text=[f"{p:,.1f}%" for p in df_k_mtd["Pct"]], textposition="inside"))
+        fig_mtd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
+        for idx, row in df_k_mtd.iterrows():
+            fig_mtd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
+        fig_mtd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20))
+        st.plotly_chart(fig_mtd, use_container_width=True)
 
-# YTD Level Kebun
-df_k_ytd = df_ytd.groupby('Kebun').agg({'Kg Akt.': 'sum', 'Kg Bgt.': 'sum'}).reset_index()
-df_k_ytd['Luas'] = df_k_ytd['Kebun'].map(luas_kebun_ytd)
-df_k_ytd['Aktual'] = df_k_ytd['Kg Akt.'] / df_k_ytd['Luas'] / 1000
-df_k_ytd['Target'] = df_k_ytd['Kg Bgt.'] / df_k_ytd['Luas'] / 1000
-df_k_ytd['Pct'] = (df_k_ytd['Aktual'] / df_k_ytd['Target'] * 100).fillna(0)
+    with col_g2:
+        st.markdown("##### 📊 Yield Per Kebun - s.d Bulan Ini")
+        fig_ytd = go.Figure()
+        fig_ytd.add_trace(go.Bar(x=df_k_ytd["Kebun"], y=df_k_ytd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35, text=[f"{p:,.1f}%" for p in df_k_ytd["Pct"]], textposition="inside"))
+        fig_ytd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
+        for idx, row in df_k_ytd.iterrows():
+            fig_ytd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
+        fig_ytd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20))
+        st.plotly_chart(fig_ytd, use_container_width=True)
 
-# --- 3. LAYOUT GRAFIK BERSEBELAHAN (KEBUN) ---
-col_g1, col_g2 = st.columns(2)
+    # Tabel Data Kebun
+    def style_gap(val): return 'color: black; font-weight: bold;'
+    def style_var(val):
+        if isinstance(val, (int, float)):
+            if val >= -10: return 'background-color: #A9D08E; color: black; font-weight: bold;'
+            else: return 'background-color: #FF8585; color: black; font-weight: bold;'
+        return ''
 
-with col_g1:
-    st.markdown(f"##### 📊 Yield Per Kebun - Bulan Ini")
-    fig_mtd = go.Figure()
-    fig_mtd.add_trace(go.Bar(
-        x=df_k_mtd["Kebun"], y=df_k_mtd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35,
-        text=[f"{p:,.1f}%" for p in df_k_mtd["Pct"]], textposition="inside", insidetextanchor="start",
-        textfont=dict(color="white", size=12, family="Arial Black")
-    ))
-    fig_mtd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
-    for idx, row in df_k_mtd.iterrows():
-        fig_mtd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-        if row["Pct"] < 90 or row["Pct"] > 110:
-            fig_mtd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
-    fig_mtd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
-    st.plotly_chart(fig_mtd, use_container_width=True)
+    col_t1, col_t2 = st.columns(2)
+    with col_t1:
+        st.markdown("##### 📋 Data Yield Per Kebun - Bulan Ini")
+        df_t_mtd = pd.DataFrame({'Kebun': df_k_mtd['Kebun'].unique()})
+        df_t_mtd['Aktual'] = df_t_mtd['Kebun'].map(df_k_mtd.set_index('Kebun')['Aktual'])
+        df_t_mtd['Budget'] = df_t_mtd['Kebun'].map(df_k_mtd.set_index('Kebun')['Target'])
+        df_t_mtd['Gap'] = df_t_mtd['Aktual'] - df_t_mtd['Budget']
+        df_t_mtd['Var (%)'] = df_t_mtd['Kebun'].map(df_k_mtd.set_index('Kebun')['Pct']) - 100
+        st.dataframe(df_t_mtd.style.format({'Aktual': '{:,.2f}', 'Budget': '{:,.2f}', 'Gap': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap, subset=['Gap']).map(style_var, subset=['Var (%)']), use_container_width=True, hide_index=True)
 
-with col_g2:
-    st.markdown(f"##### 📊 Yield Per Kebun - s.d Bulan Ini")
-    fig_ytd = go.Figure()
-    fig_ytd.add_trace(go.Bar(
-        x=df_k_ytd["Kebun"], y=df_k_ytd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35,
-        text=[f"{p:,.1f}%" for p in df_k_ytd["Pct"]], textposition="inside", insidetextanchor="start",
-        textfont=dict(color="white", size=12, family="Arial Black")
-    ))
-    fig_ytd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
-    for idx, row in df_k_ytd.iterrows():
-        fig_ytd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-        if row["Pct"] < 90 or row["Pct"] > 110:
-            fig_ytd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
-    fig_ytd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
-    st.plotly_chart(fig_ytd, use_container_width=True)
+    with col_t2:
+        st.markdown("##### 📋 Data Yield Per Kebun - s.d Bulan Ini")
+        df_t_ytd = pd.DataFrame({'Kebun': df_k_ytd['Kebun'].unique()})
+        df_t_ytd['Aktual'] = df_t_ytd['Kebun'].map(df_k_ytd.set_index('Kebun')['Aktual'])
+        df_t_ytd['Budget'] = df_t_ytd['Kebun'].map(df_k_ytd.set_index('Kebun')['Target'])
+        df_t_ytd['Gap'] = df_t_ytd['Aktual'] - df_t_ytd['Budget']
+        df_t_ytd['Var (%)'] = df_t_ytd['Kebun'].map(df_k_ytd.set_index('Kebun')['Pct']) - 100
+        st.dataframe(df_t_ytd.style.format({'Aktual': '{:,.2f}', 'Budget': '{:,.2f}', 'Gap': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap, subset=['Gap']).map(style_var, subset=['Var (%)']), use_container_width=True, hide_index=True)
 
-# --- 4. TABEL KEBUN STYLING ---
-def style_gap_black_p(val): return 'color: black; font-weight: bold;'
-def style_bgt_var_fill_p(val):
-    if isinstance(val, (int, float)):
-        if val >= -10: return 'background-color: #A9D08E; color: black; font-weight: bold; text-align: right;'
-        elif -20 <= val < -10: return 'background-color: #FFF2CC; color: black; font-weight: bold; text-align: right;'
-        elif -30 <= val < -20: return 'background-color: #FFC000; color: black; font-weight: bold; text-align: right;'
-        else: return 'background-color: #FF8585; color: black; font-weight: bold; text-align: right;'
-    return ''
-
-st.markdown("<style>th { text-align: center !important; }</style>", unsafe_allow_html=True)
-col_t1, col_t2 = st.columns(2)
-
-with col_t1:
-    st.markdown(f"##### 📋 Data Yield Per Kebun - Bulan Ini")
-    df_t_mtd = pd.DataFrame({'Kebun': df_k_mtd['Kebun'].unique()})
-    df_t_mtd['Aktual'] = df_t_mtd['Kebun'].map(df_k_mtd.set_index('Kebun')['Aktual'])
-    df_t_mtd['Budget'] = df_t_mtd['Kebun'].map(df_k_mtd.set_index('Kebun')['Target'])
-    df_t_mtd['Var'] = df_t_mtd['Aktual'] - df_t_mtd['Budget']
-    df_t_mtd['Pct'] = df_t_mtd['Kebun'].map(df_k_mtd.set_index('Kebun')['Pct']) - 100
+    # Detail Afdeling Dropdown
+    st.markdown("---")
+    list_kebun = sorted(df_raw['Kebun'].dropna().unique())
+    kebun_terpilih = st.selectbox("Pilih Kebun untuk melihat detail Afdeling:", list_kebun, key="sb_bgt_afd")
+    df_m_afd = df_mtd[df_mtd['Kebun'] == kebun_terpilih].copy()
     
-    luas_site_mtd = luas_kebun_mtd.sum()
-    site_mtd_akt = df_mtd['Kg Akt.'].sum() / luas_site_mtd / 1000
-    site_mtd_bgt = df_mtd['Kg Bgt.'].sum() / luas_site_mtd / 1000
-    site_mtd_var = site_mtd_akt - site_mtd_bgt
-    site_mtd_pct = ((site_mtd_akt / site_mtd_bgt * 100) - 100) if site_mtd_bgt > 0 else -100
-    
-    df_total_mtd = pd.DataFrame([{'Kebun': 'TOTAL SITE', 'Aktual': site_mtd_akt, 'Budget': site_mtd_bgt, 'Var': site_mtd_var, 'Pct': site_mtd_pct}])
-    df_final_mtd = pd.concat([df_t_mtd, df_total_mtd], ignore_index=True)
-    df_final_mtd.insert(0, 'No', range(1, len(df_final_mtd) + 1))
-    df_final_mtd.columns = ['No', 'Kebun', 'Aktual (Ton/Ha)', 'Budget (Ton/Ha)', 'Gap (Ton/Ha)', 'Var (%)']
-    st.dataframe(df_final_mtd.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Budget (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black_p, subset=['Gap (Ton/Ha)']).map(style_bgt_var_fill_p, subset=['Var (%)']), use_container_width=True, hide_index=True)
-
-with col_t2:
-    st.markdown(f"##### 📋 Data Yield Per Kebun - s.d Bulan Ini")
-    df_t_ytd = pd.DataFrame({'Kebun': df_k_ytd['Kebun'].unique()})
-    df_t_ytd['Aktual'] = df_t_ytd['Kebun'].map(df_k_ytd.set_index('Kebun')['Aktual'])
-    df_t_ytd['Budget'] = df_t_ytd['Kebun'].map(df_k_ytd.set_index('Kebun')['Target'])
-    df_t_ytd['Var'] = df_t_ytd['Aktual'] - df_t_ytd['Budget']
-    df_t_ytd['Pct'] = df_t_ytd['Kebun'].map(df_k_ytd.set_index('Kebun')['Pct']) - 100
-    
-    luas_site_ytd = luas_kebun_ytd.sum()
-    site_ytd_akt = df_ytd['Kg Akt.'].sum() / luas_site_ytd / 1000
-    site_ytd_bgt = df_ytd['Kg Bgt.'].sum() / luas_site_ytd / 1000
-    site_ytd_var = site_ytd_akt - site_ytd_bgt
-    site_ytd_pct = ((site_ytd_akt / site_ytd_bgt * 100) - 100) if site_ytd_bgt > 0 else -100
-    
-    df_total_ytd = pd.DataFrame([{'Kebun': 'TOTAL SITE', 'Aktual': site_ytd_akt, 'Budget': site_ytd_bgt, 'Var': site_ytd_var, 'Pct': site_ytd_pct}])
-    df_final_ytd = pd.concat([df_t_ytd, df_total_ytd], ignore_index=True)
-    df_final_ytd.insert(0, 'No', range(1, len(df_final_ytd) + 1))
-    df_final_ytd.columns = ['No', 'Kebun', 'Aktual (Ton/Ha)', 'Budget (Ton/Ha)', 'Gap (Ton/Ha)', 'Var (%)']
-    st.dataframe(df_final_ytd.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Budget (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black_p, subset=['Gap (Ton/Ha)']).map(style_bgt_var_fill_p, subset=['Var (%)']), use_container_width=True, hide_index=True)
-
-# --- 5. SUB DETAIL PER AFDELING ---
-st.markdown("---")
-st.markdown("### 🔎 Detail per Afdeling")
-list_kebun = sorted(df_raw['Kebun'].dropna().unique())
-kebun_terpilih = st.selectbox("Pilih Kebun untuk melihat detail Afdeling:", list_kebun, key="sb_bgt_afd_p")
-
-df_m_afd = df_mtd[df_mtd['Kebun'] == kebun_terpilih].copy()
-df_y_afd = df_ytd[df_ytd['Kebun'] == kebun_terpilih].copy()
-
-if not df_m_afd.empty:
-    luas_afd_mtd = df_m_afd.groupby('Afdeling')['Luas'].first()
-    luas_afd_ytd = df_y_afd.groupby('Afdeling')['Luas'].first()
-
-    df_a_mtd = df_m_afd.groupby('Afdeling').agg({'Kg Akt.': 'sum', 'Kg Bgt.': 'sum'}).reset_index()
-    df_a_mtd['Luas'] = df_a_mtd['Afdeling'].map(luas_afd_mtd)
-    df_a_mtd['Aktual'] = df_a_mtd['Kg Akt.'] / df_a_mtd['Luas'] / 1000
-    df_a_mtd['Target'] = df_a_mtd['Kg Bgt.'] / df_a_mtd['Luas'] / 1000
-    df_a_mtd['Pct'] = (df_a_mtd['Aktual'] / df_a_mtd['Target'] * 100).fillna(0)
-
-    df_a_ytd = df_y_afd.groupby('Afdeling').agg({'Kg Akt.': 'sum', 'Kg Bgt.': 'sum'}).reset_index()
-    df_a_ytd['Luas'] = df_a_ytd['Afdeling'].map(luas_afd_ytd)
-    df_a_ytd['Aktual'] = df_a_ytd['Kg Akt.'] / df_a_ytd['Luas'] / 1000
-    df_a_ytd['Target'] = df_a_ytd['Kg Bgt.'] / df_a_ytd['Luas'] / 1000
-    df_a_ytd['Pct'] = (df_a_ytd['Aktual'] / df_a_ytd['Target'] * 100).fillna(0)
-
-    col_ga1, col_ga2 = st.columns(2)
-    with col_ga1:
-        st.markdown(f"##### 📊 Yield Per Afdeling ({kebun_terpilih}) - Bulan Ini")
-        fig_amtd = go.Figure()
-        fig_amtd.add_trace(go.Bar(x=df_a_mtd["Afdeling"], y=df_a_mtd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35, text=[f"{p:,.1f}%" for p in df_a_mtd["Pct"]], textposition="inside", insidetextanchor="start", textfont=dict(color="white", size=11, family="Arial Black")))
-        fig_amtd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
-        for idx, row in df_a_mtd.iterrows():
-            fig_amtd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-            if row["Pct"] < 90 or row["Pct"] > 110:
-                fig_amtd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
-        fig_amtd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
-        st.plotly_chart(fig_amtd, use_container_width=True)
-
-    with col_ga2:
-        st.markdown(f"##### 📊 Yield Per Afdeling ({kebun_terpilih}) - s.d Bulan Ini")
-        fig_aytd = go.Figure()
-        fig_aytd.add_trace(go.Bar(x=df_a_ytd["Afdeling"], y=df_a_ytd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35, text=[f"{p:,.1f}%" for p in df_a_ytd["Pct"]], textposition="inside", insidetextanchor="start", textfont=dict(color="white", size=11, family="Arial Black")))
-        fig_aytd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
-        for idx, row in df_a_ytd.iterrows():
-            fig_aytd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-            if row["Pct"] < 90 or row["Pct"] > 110:
-                fig_aytd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
-        fig_aytd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict
+    if not df_m_afd.empty:
+        df_a_mtd = df_m_afd.groupby('Afdeling').agg({'Kg Akt.': 'sum', 'Kg Bgt.': 'sum'}).reset_index()
+        df_a_mtd['Luas'] = df_a_mtd['Afdeling'].map(df_m_afd.groupby('Afdeling')['Luas'].first())
+        df_a_mtd['Aktual'] = df_a_mtd['Kg Akt.'] / df_a_mtd['Luas'] / 1000
+        df_a_mtd['Target'] = df_a_mtd['Kg Bgt.'] / df_a_mtd['Luas'] / 1000
+        
+        st.markdown(f"##### 📊 Yield Per Afdeling ({kebun_terpilih})")
+        fig_afd = go.Figure()
+        fig_afd.add_trace(go.Bar(x=df_a_mtd["Afdeling"], y=df_a_mtd["Aktual"], name="Aktual", marker_color="#28348A"))
+        st.plotly_chart(fig_afd, use_container_width=True)
