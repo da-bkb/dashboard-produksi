@@ -47,10 +47,10 @@ col_g1, col_g2 = st.columns(2)
 with col_g1:
     st.markdown(f"##### 📊 Grafik Yield - Bulan Ini ({pilihan_bulan})")
     fig_mtd = go.Figure()
-    # Perbaikan Syntax: Label % diletakkan aman di dasar batang
+    # FIX: Mengubah insidetextanchor menjadi 'start' agar label aman di dasar batang
     fig_mtd.add_trace(go.Bar(
         x=df_k_mtd["Kebun"], y=df_k_mtd["Aktual"], name="Aktual MTD", marker_color="#28348A", width=0.35,
-        text=[f"{p:,.1f}%" for p in df_k_mtd["Pct"]], textposition="inside", insidetextanchor="bottom",
+        text=[f"{p:,.1f}%" for p in df_k_mtd["Pct"]], textposition="inside", insidetextanchor="start",
         textfont=dict(color="white", size=12, family="Arial Black")
     ))
     fig_mtd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Budget MTD'))
@@ -65,10 +65,10 @@ with col_g1:
 with col_g2:
     st.markdown(f"##### 📊 Grafik Yield - s.d Bulan Ini (YTD {pilihan_bulan})")
     fig_ytd = go.Figure()
-    # Perbaikan Syntax: Label % diletakkan aman di dasar batang
+    # FIX: Mengubah insidetextanchor menjadi 'start' agar label aman di dasar batang
     fig_ytd.add_trace(go.Bar(
         x=df_k_ytd["Kebun"], y=df_k_ytd["Aktual"], name="Aktual YTD", marker_color="#28348A", width=0.35,
-        text=[f"{p:,.1f}%" for p in df_k_ytd["Pct"]], textposition="inside", insidetextanchor="bottom",
+        text=[f"{p:,.1f}%" for p in df_k_ytd["Pct"]], textposition="inside", insidetextanchor="start",
         textfont=dict(color="white", size=12, family="Arial Black")
     ))
     fig_ytd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Budget YTD'))
