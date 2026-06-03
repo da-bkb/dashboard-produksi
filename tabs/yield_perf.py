@@ -1,30 +1,64 @@
-# --- PROSES DATA AKUMULASI (YEAR TO DATE - YTD) ---
-URUTAN_BULAN_STANDAR = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
+import streamlit as st
+import pandas as pd
+import plotly.graph_objects as go
 
-# Standarisasi Input Agustus jika dari widget tertulis AGUSTUS
-pilihan_bulan_std = "AGS" if pilihan_bulan in ["AGUSTUS", "AGS"] else pilihan_bulan
+df_raw = st.session_state["df_raw"]
+pilihan_bulan = st.session_state["pilihan_bulan"]
+list_bulan = st.session_state["list_bulan"]
 
-if pilihan_bulan_std in URUTAN_BULAN_STANDAR:
-    idx_bulan = URUTAN_BULAN_STANDAR.index(pilihan_bulan_std)
-    bulan_ytd = URUTAN_BULAN_STANDAR[:idx_bulan + 1]
-else:
-    list_bulan_raw = list(df_raw['Bulan'].unique())
-    if pilihan_bulan_std in list_bulan_raw:
-        idx_bulan = list_bulan_raw.index(pilihan_bulan_std)
-        bulan_ytd = list_bulan_raw[:idx_bulan + 1]
-    else:
-        bulan_ytd = [pilihan_bulan_std]
+def format_capaian(val):
+    try:
+        num = float(val)
+        if 95.0 <= num <= 105.0:
+            return f"{num:.1f}%"
+        elif num < 95.0:
+            return f"🔻 {num:.1f}%"
+        else:
+            return f"🔺 {num:.1f}%"
+    except:
+        return str(val)
 
-# Filter data YTD menggunakan list bulan standar yang sudah lolos verifikasi
-df_ytd = df_raw[df_raw['Bulan'].isin(bulan_ytd)].copy()
+st.subheader("📊 Analisis Kinerja Yield / Tonase")
 
-# Afdeling ytd group
-df_afd_ytd_grp = df_ytd.groupby('Afdeling').agg({
-    'Kg Akt.': 'sum',
-    'Kg Bgt.': 'sum',
-    'Luas': 'first'
-}).reset_index()
+# Bulanan (Menggunakan total Kg dibagi total Luas agar rumus Yield Akurat)
+df_bln_kebun = df_raw[df_raw["Bulan"] == pilihan_bulan].copy()
+df_kebun_bln = df_bln_kebun.groupby("Kebun", as_index=False).agg({
+    "Luas": "sum", 
+    "Kg Akt.": "sum", 
+    "Kg Bgt.": "sum"
+})
+df_kebun_bln["Yield_Akt"] = (df_kebun_bln["Kg Akt."] / 1000) / df_kebun_bln["Luas"]
+df_kebun_bln["Yield_Bgt"] = (df_kebun_bln["Kg Bgt."] / 1000) / df_kebun_bln["Luas"]
 
-df_afd_ytd_grp['Yield_Akt'] = df_afd_ytd_grp['Kg Akt.'] / df_afd_ytd_grp['Luas'] / 1000
-df_afd_ytd_grp['Yield_Bgt'] = df_afd_ytd_grp['Kg Bgt.'] / df_afd_ytd_grp['Luas'] / 1000
-df_afd_ytd_grp['Yield_Pct'] = (df_afd_ytd_grp['Yield_Akt'] / df_afd_ytd_grp['Yield_Bgt'] * 100).fillna(0)
+# YTD
+idx_bulan = list_bulan.index(pilihan_bulan)
+df_ytd_kebun = df_raw[df_raw["Bulan"].isin(list_bulan[:idx_bulan + 1])].copy()
+df_kebun_ytd = df_ytd_kebun.groupby("Kebun", as_index=False).agg({
+    "Luas": "sum", 
+    "Kg Akt.": "sum"
+})
+df_kebun_ytd["Yield_Akt_YTD"] = (df_kebun_ytd["Kg Akt."] / 1000) / df_kebun_ytd["Luas"]
+
+# --- GRAFIK GABUNGAN ASLI ---
+fig = go.Figure()
+fig.add_trace(go.Bar(x=df_kebun_bln["Kebun"], y=df_kebun_bln["Yield_Akt"], name="Yield Aktual Bulanan"))
+fig.add_trace(go.Bar(x=df_kebun_ytd["Kebun"], y=df_kebun_ytd["Yield_Akt_YTD"], name="YTD Aktual"))
+fig.add_trace(go.Scatter(x=df_kebun_bln["Kebun"], y=df_kebun_bln["Yield_Bgt"], mode="lines+markers", name="Target Budget"))
+
+fig.update_layout(
+    title=f"Yield Performa Kebun - Periode {pilihan_bulan}", 
+    xaxis_title="Kebun", 
+    yaxis_title="Ton / Ha", 
+    barmode="group", 
+    template="plotly_white"
+)
+st.plotly_chart(fig, use_container_width=True)
+
+# --- TABEL DATA WARNA ASLI ---
+df_kebun_bln["% Cap."] = 0.0
+mask = df_kebun_bln["Yield_Bgt"] > 0
+df_kebun_bln.loc[mask, "% Cap."] = (df_kebun_bln.loc[mask, "Yield_Akt"] / df_kebun_bln.loc[mask, "Yield_Bgt"]) * 100
+
+df_display = df_kebun_bln[["Kebun", "Luas", "Kg Akt.", "Kg Bgt.", "Yield_Akt", "Yield_Bgt", "% Cap."]].copy()
+df_display["% Cap."] = df_display["% Cap."].apply(format_capaian)
+st.dataframe(df_display, use_container_width=True)
