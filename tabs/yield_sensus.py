@@ -10,19 +10,44 @@ pilihan_bulan = st.session_state["pilihan_bulan"]
 # Judul utama bersih sesuai format seragam
 st.markdown(f"### 🎯 Yield terhadap Sensus (Ton/Ha)")
 
-# --- 1. PROSES FILTER TIMEFRAME (MTD & YTD) ---
-df_mtd = df_raw[df_raw['Bulan'] == pilihan_bulan].copy()
-
+# --- 1. PROSES FILTER TIMEFRAME (MTD & YTD) BERDASARKAN PERIODE ---
 URUTAN_BULAN_STD = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
-pilihan_bulan_std = "AGS" if pilihan_bulan in ["AGUSTUS", "AGS"] else pilihan_bulan
 
-if pilihan_bulan_std in URUTAN_BULAN_STD:
-    idx_bulan = URUTAN_BULAN_STD.index(pilihan_bulan_std)
-    bulan_ytd = URUTAN_BULAN_STD[:idx_bulan + 1]
+if pilihan_bulan == "CAWU I":
+    bulan_mtd_list = ['JAN', 'FEB', 'MAR', 'APR']
+    bulan_ytd_list = ['JAN', 'FEB', 'MAR', 'APR']
+elif pilihan_bulan == "CAWU II":
+    bulan_mtd_list = ['MEI', 'JUN', 'JUL', 'AGS']
+    bulan_ytd_list = ['MEI', 'JUN', 'JUL', 'AGS']
+elif pilihan_bulan == "CAWU III":
+    bulan_mtd_list = ['SEP', 'OKT', 'NOV', 'DES']
+    bulan_ytd_list = ['SEP', 'OKT', 'NOV', 'DES']
+elif pilihan_bulan == "SEMESTER I":
+    bulan_mtd_list = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN']
+    bulan_ytd_list = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN']
+elif pilihan_bulan == "SEMESTER II":
+    bulan_mtd_list = ['JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
+    bulan_ytd_list = ['JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
+elif pilihan_bulan == "s.d CAWU II":
+    bulan_mtd_list = ['MEI', 'JUN', 'JUL', 'AGS']
+    bulan_ytd_list = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS']
+elif pilihan_bulan == "s.d CAWU III":
+    bulan_mtd_list = ['SEP', 'OKT', 'NOV', 'DES']
+    bulan_ytd_list = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
+elif pilihan_bulan == "s.d SEMESTER II":
+    bulan_mtd_list = ['JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
+    bulan_ytd_list = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
 else:
-    bulan_ytd = [pilihan_bulan_std]
+    pilihan_bulan_std = "AGS" if pilihan_bulan in ["AGUSTUS", "AGS"] else pilihan_bulan
+    bulan_mtd_list = [pilihan_bulan_std]
+    if pilihan_bulan_std in URUTAN_BULAN_STD:
+        idx_bulan = URUTAN_BULAN_STD.index(pilihan_bulan_std)
+        bulan_ytd_list = URUTAN_BULAN_STD[:idx_bulan + 1]
+    else:
+        bulan_ytd_list = [pilihan_bulan_std]
 
-df_ytd = df_raw[df_raw['Bulan'].isin(bulan_ytd)].copy()
+df_mtd = df_raw[df_raw['Bulan'].isin(bulan_mtd_list)].copy()
+df_ytd = df_raw[df_raw['Bulan'].isin(bulan_ytd_list)].copy()
 
 # --- 2. PERHITUNGAN AGREGASI DATA KEBUN ---
 luas_kebun_mtd = df_mtd.groupby(['Kebun', 'Afdeling'])['Luas'].first().reset_index().groupby('Kebun')['Luas'].sum()
@@ -46,7 +71,7 @@ df_k_ytd['Pct'] = (df_k_ytd['Aktual'] / df_k_ytd['Target'] * 100).fillna(0)
 col_g1, col_g2 = st.columns(2)
 
 with col_g1:
-    st.markdown(f"##### 📊 Yield Per Kebun - Bulan Ini")
+    st.markdown(f"##### 📊 Yield Per Kebun - Periode Ini")
     fig_mtd = go.Figure()
     fig_mtd.add_trace(go.Bar(
         x=df_k_mtd["Kebun"], y=df_k_mtd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35,
@@ -62,7 +87,7 @@ with col_g1:
     st.plotly_chart(fig_mtd, use_container_width=True)
 
 with col_g2:
-    st.markdown(f"##### 📊 Yield Per Kebun - s.d Bulan Ini")
+    st.markdown(f"##### 📊 Yield Per Kebun - s.d Periode Ini")
     fig_ytd = go.Figure()
     fig_ytd.add_trace(go.Bar(
         x=df_k_ytd["Kebun"], y=df_k_ytd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35,
@@ -94,7 +119,7 @@ st.markdown("<style>th { text-align: center !important; }</style>", unsafe_allow
 col_t1, col_t2 = st.columns(2)
 
 with col_t1:
-    st.markdown(f"##### 📋 Data Yield Per Kebun - Bulan Ini")
+    st.markdown(f"##### 📋 Data Yield Per Kebun - Periode Ini")
     df_t_mtd = pd.DataFrame({'Kebun': df_k_mtd['Kebun'].unique()})
     df_t_mtd['Aktual'] = df_t_mtd['Kebun'].map(df_k_mtd.set_index('Kebun')['Aktual'])
     df_t_mtd['Sensus'] = df_t_mtd['Kebun'].map(df_k_mtd.set_index('Kebun')['Target'])
@@ -115,7 +140,7 @@ with col_t1:
     st.dataframe(df_final_mtd.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Sensus (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Ton/Ha)']).map(style_var_fill_koreksi, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True)
 
 with col_t2:
-    st.markdown(f"##### 📋 Data Yield Per Kebun - s.d Bulan Ini")
+    st.markdown(f"##### 📋 Data Yield Per Kebun - s.d Periode Ini")
     df_t_ytd = pd.DataFrame({'Kebun': df_k_ytd['Kebun'].unique()})
     df_t_ytd['Aktual'] = df_t_ytd['Kebun'].map(df_k_ytd.set_index('Kebun')['Aktual'])
     df_t_ytd['Sensus'] = df_t_ytd['Kebun'].map(df_k_ytd.set_index('Kebun')['Target'])
@@ -142,16 +167,13 @@ with col_t2:
 st.markdown("---")
 st.markdown("### 🔎 Detail per Afdeling")
 
-# Pilih Kebun untuk filter Afdeling
 list_kebun = sorted(df_raw['Kebun'].dropna().unique())
 kebun_terpilih = st.selectbox("Pilih Kebun untuk melihat detail Afdeling:", list_kebun, key="sb_sns_afd")
 
-# Filter data mentah berdasarkan kebun terpilih
 df_m_afd = df_mtd[df_mtd['Kebun'] == kebun_terpilih].copy()
 df_y_afd = df_ytd[df_ytd['Kebun'] == kebun_terpilih].copy()
 
 if not df_m_afd.empty:
-    # Perhitungan Luas per Afdeling (Luas First per Afdeling)
     luas_afd_mtd = df_m_afd.groupby('Afdeling')['Luas'].first()
     luas_afd_ytd = df_y_afd.groupby('Afdeling')['Luas'].first()
 
@@ -173,7 +195,7 @@ if not df_m_afd.empty:
     col_ga1, col_ga2 = st.columns(2)
     
     with col_ga1:
-        st.markdown(f"##### 📊 Yield Per Afdeling ({kebun_terpilih}) - Bulan Ini")
+        st.markdown(f"##### 📊 Yield Per Afdeling ({kebun_terpilih}) - Periode Ini")
         fig_amtd = go.Figure()
         fig_amtd.add_trace(go.Bar(x=df_a_mtd["Afdeling"], y=df_a_mtd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35, text=[f"{p:,.1f}%" for p in df_a_mtd["Pct"]], textposition="inside", insidetextanchor="start", textfont=dict(color="white", size=11, family="Arial Black")))
         fig_amtd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Sensus'))
@@ -185,7 +207,7 @@ if not df_m_afd.empty:
         st.plotly_chart(fig_amtd, use_container_width=True)
 
     with col_ga2:
-        st.markdown(f"##### 📊 Yield Per Afdeling ({kebun_terpilih}) - s.d Bulan Ini")
+        st.markdown(f"##### 📊 Yield Per Afdeling ({kebun_terpilih}) - s.d Periode Ini")
         fig_aytd = go.Figure()
         fig_aytd.add_trace(go.Bar(x=df_a_ytd["Afdeling"], y=df_a_ytd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35, text=[f"{p:,.1f}%" for p in df_a_ytd["Pct"]], textposition="inside", insidetextanchor="start", textfont=dict(color="white", size=11, family="Arial Black")))
         fig_aytd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Sensus'))
@@ -200,7 +222,7 @@ if not df_m_afd.empty:
     col_ta1, col_ta2 = st.columns(2)
     
     with col_ta1:
-        st.markdown(f"##### 📋 Data Yield Per Afdeling - Bulan Ini")
+        st.markdown(f"##### 📋 Data Yield Per Afdeling - Periode Ini")
         df_ta_mtd = pd.DataFrame({'Afdeling': df_a_mtd['Afdeling'].unique()})
         df_ta_mtd['Aktual'] = df_ta_mtd['Afdeling'].map(df_a_mtd.set_index('Afdeling')['Aktual'])
         df_ta_mtd['Sensus'] = df_ta_mtd['Afdeling'].map(df_a_mtd.set_index('Afdeling')['Target'])
@@ -212,7 +234,7 @@ if not df_m_afd.empty:
         st.dataframe(df_ta_mtd.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Sensus (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Ton/Ha)']).map(style_var_fill_koreksi, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True)
 
     with col_ta2:
-        st.markdown(f"##### 📋 Data Yield Per Afdeling - s.d Bulan Ini")
+        st.markdown(f"##### 📋 Data Yield Per Afdeling - s.d Periode Ini")
         df_ta_ytd = pd.DataFrame({'Afdeling': df_a_ytd['Afdeling'].unique()})
         df_ta_ytd['Aktual'] = df_ta_ytd['Afdeling'].map(df_a_ytd.set_index('Afdeling')['Aktual'])
         df_ta_ytd['Sensus'] = df_ta_ytd['Afdeling'].map(df_a_ytd.set_index('Afdeling')['Target'])

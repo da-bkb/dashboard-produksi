@@ -23,16 +23,13 @@ def load_data(tipe_target):
     if not os.path.exists(file_name):
         return pd.DataFrame(), nama_target
 
-    # Mengembalikan format pembacaan murni sesuai kode asli Bapak
     try:
         df = pd.read_csv(file_name, sep=";", decimal=",")
     except:
         df = pd.read_csv(file_name, sep=",", decimal=",")
         
-    # Bersihkan spasi liar pada nama kolom agar tidak memicu error indeks duplikat
     df.columns = df.columns.str.strip()
     
-    # Standarisasi kolom Bulan menjadi huruf kapital murni tanpa mengubah struktur data lainnya
     if 'Bulan' in df.columns:
         df['Bulan'] = df['Bulan'].astype(str).str.strip().str.upper()
         
@@ -46,7 +43,6 @@ st.markdown("---")
 col1, col2, col3 = st.columns([1.5, 1.2, 1.8])
 
 with col1:
-    # Filter 1: Capaian terhadap pilihan Budget atau Sensus
     pilihan_target = st.radio(
         "🎯 Capaian terhadap :",
         ["Budget", "Sensus"],
@@ -54,7 +50,6 @@ with col1:
         key="global_target_type_picker"
     )
 
-# Memuat data secara real-time dari file csv yang sesuai pilihan filter 1
 df_raw, nama_target_label = load_data(pilihan_target)
 
 if df_raw.empty:
@@ -62,8 +57,17 @@ if df_raw.empty:
     st.stop()
 
 with col2:
-    # Filter 2: Pilihan Bulan Analisis mengambil dari kolom 'Bulan' di CSV
-    list_bulan = list(df_raw['Bulan'].unique()) if 'Bulan' in df_raw.columns else ['MEI']
+    # Mengambil list bulan dasar dari file CSV
+    bulan_dasar = list(df_raw['Bulan'].unique()) if 'Bulan' in df_raw.columns else ['MEI']
+    
+    # Menambahkan opsi Periode Makro (Cawu & Semester) ke dalam dropdown list
+    opsi_tambahan = [
+        "CAWU I", "CAWU II", "CAWU III", 
+        "SEMESTER I", "SEMESTER II",
+        "s.d CAWU II", "s.d CAWU III", "s.d SEMESTER II"
+    ]
+    list_bulan = bulan_dasar + opsi_tambahan
+    
     default_idx = list_bulan.index("MEI") if "MEI" in list_bulan else 0
     
     pilihan_bulan = st.selectbox(
@@ -74,17 +78,15 @@ with col2:
     )
 
 with col3:
-    # Filter 3: Menu Tabs Analisis sesuai urutan permintaan Bapak
     menu_analisis = st.selectbox(
         "📊 Pilih Menu Analisis:",
         ["Yield", "RJP", "BJR", "Trend per Kebun", "Trend per Afdeling"],
         key="menu_dashboard_navigator_main"
     )
 
-st.markdown("---") # Garis pembatas tebal penanda area visualisasi grafik di bawahnya
+st.markdown("---")
 
 # --- 5. MENYIMPAN VARIABEL GLOBAL KE SESSION STATE ---
-# Agar file-file sub-tab di folder 'tabs' bisa langsung membaca datanya tanpa error
 st.session_state["df_raw"] = df_raw
 st.session_state["pilihan_bulan"] = pilihan_bulan
 st.session_state["list_bulan"] = list_bulan
@@ -93,7 +95,6 @@ st.session_state["list_bulan"] = list_bulan
 global_context = globals()
 
 if menu_analisis == "Yield":
-    # Menentukan file sub-tab yang akan dibuka berdasarkan filter "Capaian terhadap"
     file_tab = "tabs/yield_perf.py" if pilihan_target == "Budget" else "tabs/yield_sensus.py"
     if os.path.exists(file_tab):
         exec(open(file_tab).read(), global_context)
