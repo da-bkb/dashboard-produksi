@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 df_raw = st.session_state["df_raw"]
 pilihan_bulan = st.session_state["pilihan_bulan"]
 
-# Judul utama bersih tanpa kata Performance / Performa
+# Judul utama bersih sesuai format seragam
 st.markdown(f"### 🎯 Yield terhadap Sensus (Ton/Ha)")
 
 # --- 1. PROSES FILTER TIMEFRAME (MTD & YTD) ---
@@ -46,7 +46,7 @@ df_k_ytd['Pct'] = (df_k_ytd['Aktual'] / df_k_ytd['Target'] * 100).fillna(0)
 col_g1, col_g2 = st.columns(2)
 
 with col_g1:
-    st.markdown(f"##### 📊 Grafik Yield - Bulan Ini ({pilihan_bulan})")
+    st.markdown(f"##### 📊 Yield Per Kebun - Bulan Ini")
     fig_mtd = go.Figure()
     fig_mtd.add_trace(go.Bar(
         x=df_k_mtd["Kebun"], y=df_k_mtd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35,
@@ -62,7 +62,7 @@ with col_g1:
     st.plotly_chart(fig_mtd, use_container_width=True)
 
 with col_g2:
-    st.markdown(f"##### 📊 Grafik Yield - s.d Bulan Ini ({pilihan_bulan})")
+    st.markdown(f"##### 📊 Yield Per Kebun - s.d Bulan Ini")
     fig_ytd = go.Figure()
     fig_ytd.add_trace(go.Bar(
         x=df_k_ytd["Kebun"], y=df_k_ytd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35,
@@ -94,7 +94,7 @@ st.markdown("<style>th { text-align: center !important; }</style>", unsafe_allow
 col_t1, col_t2 = st.columns(2)
 
 with col_t1:
-    st.markdown(f"##### 📋 Tabel Summary Yield - Bulan Ini ({pilihan_bulan})")
+    st.markdown(f"##### 📋 Data Yield Per Kebun - Bulan Ini")
     df_t_mtd = pd.DataFrame({'Kebun': df_k_mtd['Kebun'].unique()})
     df_t_mtd['Aktual'] = df_t_mtd['Kebun'].map(df_k_mtd.set_index('Kebun')['Aktual'])
     df_t_mtd['Sensus'] = df_t_mtd['Kebun'].map(df_k_mtd.set_index('Kebun')['Target'])
@@ -115,7 +115,7 @@ with col_t1:
     st.dataframe(df_final_mtd.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Sensus (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Ton/Ha)']).map(style_var_fill_koreksi, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True)
 
 with col_t2:
-    st.markdown(f"##### 📋 Tabel Summary Yield - s.d Bulan Ini ({pilihan_bulan})")
+    st.markdown(f"##### 📋 Data Yield Per Kebun - s.d Bulan Ini")
     df_t_ytd = pd.DataFrame({'Kebun': df_k_ytd['Kebun'].unique()})
     df_t_ytd['Aktual'] = df_t_ytd['Kebun'].map(df_k_ytd.set_index('Kebun')['Aktual'])
     df_t_ytd['Sensus'] = df_t_ytd['Kebun'].map(df_k_ytd.set_index('Kebun')['Target'])
@@ -140,7 +140,7 @@ with col_t2:
 # --- 5. SUB DETAIL PER AFDELING (SENSUS) ---
 # =========================================================================
 st.markdown("---")
-st.markdown("### 🔎 Detail Breakdown per Afdeling")
+st.markdown("### 🔎 Detail per Afdeling")
 
 # Pilih Kebun untuk filter Afdeling
 list_kebun = sorted(df_raw['Kebun'].dropna().unique())
@@ -173,9 +173,9 @@ if not df_m_afd.empty:
     col_ga1, col_ga2 = st.columns(2)
     
     with col_ga1:
-        st.markdown(f"##### 📊 Grafik Yield Afdeling {kebun_terpilih} - Bulan Ini")
+        st.markdown(f"##### 📊 Yield Per Afdeling ({kebun_terpilih}) - Bulan Ini")
         fig_amtd = go.Figure()
-        fig_amtd.add_trace(go.Bar(x=df_a_mtd["Afdeling"], y=df_a_mtd["Aktual"], name="Aktual", marker_color="#4F81BD", width=0.35, text=[f"{p:,.1f}%" for p in df_a_mtd["Pct"]], textposition="inside", insidetextanchor="start", textfont=dict(color="white", size=11, family="Arial Black")))
+        fig_amtd.add_trace(go.Bar(x=df_a_mtd["Afdeling"], y=df_a_mtd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35, text=[f"{p:,.1f}%" for p in df_a_mtd["Pct"]], textposition="inside", insidetextanchor="start", textfont=dict(color="white", size=11, family="Arial Black")))
         fig_amtd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Sensus'))
         for idx, row in df_a_mtd.iterrows():
             fig_amtd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
@@ -185,9 +185,9 @@ if not df_m_afd.empty:
         st.plotly_chart(fig_amtd, use_container_width=True)
 
     with col_ga2:
-        st.markdown(f"##### 📊 Grafik Yield Afdeling {kebun_terpilih} - s.d Bulan Ini")
+        st.markdown(f"##### 📊 Yield Per Afdeling ({kebun_terpilih}) - s.d Bulan Ini")
         fig_aytd = go.Figure()
-        fig_aytd.add_trace(go.Bar(x=df_a_ytd["Afdeling"], y=df_a_ytd["Aktual"], name="Aktual", marker_color="#4F81BD", width=0.35, text=[f"{p:,.1f}%" for p in df_a_ytd["Pct"]], textposition="inside", insidetextanchor="start", textfont=dict(color="white", size=11, family="Arial Black")))
+        fig_aytd.add_trace(go.Bar(x=df_a_ytd["Afdeling"], y=df_a_ytd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35, text=[f"{p:,.1f}%" for p in df_a_ytd["Pct"]], textposition="inside", insidetextanchor="start", textfont=dict(color="white", size=11, family="Arial Black")))
         fig_aytd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Sensus'))
         for idx, row in df_a_ytd.iterrows():
             fig_aytd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
@@ -200,7 +200,7 @@ if not df_m_afd.empty:
     col_ta1, col_ta2 = st.columns(2)
     
     with col_ta1:
-        st.markdown(f"##### 📋 Tabel Summary Yield Afdeling - Bulan Ini")
+        st.markdown(f"##### 📋 Data Yield Per Afdeling - Bulan Ini")
         df_ta_mtd = pd.DataFrame({'Afdeling': df_a_mtd['Afdeling'].unique()})
         df_ta_mtd['Aktual'] = df_ta_mtd['Afdeling'].map(df_a_mtd.set_index('Afdeling')['Aktual'])
         df_ta_mtd['Sensus'] = df_ta_mtd['Afdeling'].map(df_a_mtd.set_index('Afdeling')['Target'])
@@ -212,7 +212,7 @@ if not df_m_afd.empty:
         st.dataframe(df_ta_mtd.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Sensus (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Ton/Ha)']).map(style_var_fill_koreksi, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True)
 
     with col_ta2:
-        st.markdown(f"##### 📋 Tabel Summary Yield Afdeling - s.d Bulan Ini")
+        st.markdown(f"##### 📋 Data Yield Per Afdeling - s.d Bulan Ini")
         df_ta_ytd = pd.DataFrame({'Afdeling': df_a_ytd['Afdeling'].unique()})
         df_ta_ytd['Aktual'] = df_ta_ytd['Afdeling'].map(df_a_ytd.set_index('Afdeling')['Aktual'])
         df_ta_ytd['Sensus'] = df_ta_ytd['Afdeling'].map(df_a_ytd.set_index('Afdeling')['Target'])
@@ -221,4 +221,6 @@ if not df_m_afd.empty:
         
         df_ta_ytd.insert(0, 'No', range(1, len(df_ta_ytd) + 1))
         df_ta_ytd.columns = ['No', 'Afdeling', 'Aktual (Ton/Ha)', 'Sensus (Ton/Ha)', 'Gap (Ton/Ha)', 'Var (%)']
-        st.dataframe(df_ta_ytd.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Sensus (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)
+        st.dataframe(df_ta_ytd.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Sensus (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Ton/Ha)']).map(style_var_fill_koreksi, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True)
+else:
+    st.warning("Tidak ada data Afdeling untuk kebun ini.")
