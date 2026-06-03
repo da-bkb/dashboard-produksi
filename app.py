@@ -57,10 +57,9 @@ if df_raw.empty:
     st.stop()
 
 with col2:
-    # Mengambil list bulan dasar dari file CSV
     bulan_dasar = list(df_raw['Bulan'].unique()) if 'Bulan' in df_raw.columns else ['MEI']
     
-    # Menambahkan opsi Periode Makro (Cawu & Semester) ke dalam dropdown list
+    # Menambahkan Opsi Periode Analisis Baru ke Dropdown List Bulan
     opsi_tambahan = [
         "CAWU I", "CAWU II", "CAWU III", 
         "SEMESTER I", "SEMESTER II",
