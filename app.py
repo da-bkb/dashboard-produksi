@@ -38,7 +38,7 @@ def load_data(tipe_target):
     return df, nama_target
 
 # --- 3. JUDUL DASHBOARD ---
-st.markdown("<h1 style='text-align: center; color: #28348A;'>🌴 DASHBOARD PRODUKSI PT BKB & PT FFD</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #28348A;'>🌴 DASHBOARD PRODUKSI TBS SITE SATUI</h1>", unsafe_allow_html=True)
 st.markdown("---")
 
 # --- 4. SUSUNAN FILTER UTAMA (DI BAWAH JUDUL) ---
@@ -61,21 +61,21 @@ if df_raw.empty:
     st.stop()
 
 with col2:
-    # Filter 2: Pilihan Bulan Analisis mengambil dari kolom 'Bulan' di CSV
+    # Filter 2: Pilihan Bulan Produksi mengambil dari kolom 'Bulan' di CSV
     list_bulan = list(df_raw['Bulan'].unique()) if 'Bulan' in df_raw.columns else ['MEI']
     default_idx = list_bulan.index("MEI") if "MEI" in list_bulan else 0
     
     pilihan_bulan = st.selectbox(
-        "📅 Bulan Analisis:", 
+        "📅 Bulan Produksi:", 
         list_bulan, 
         index=default_idx,
         key="global_month_picker_main"
     )
 
 with col3:
-    # Filter 3: Menu Tabs Analisis sesuai urutan permintaan Bapak
+    # Filter 3: Menu Tabs Analisis
     menu_analisis = st.selectbox(
-        "📊 Pilih Menu Analisis:",
+        "📊 Pilih Parameter:",
         ["Yield", "RJP", "BJR", "Trend per Kebun", "Trend per Afdeling"],
         key="menu_dashboard_navigator_main"
     )
