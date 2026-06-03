@@ -118,9 +118,12 @@ with col_g2:
 def style_gap_black(val):
     return 'color: black; font-weight: bold;'
 
+# KOREKSI: DISESUAIKAN DENGAN LOGIKA WARNA YIELD BUDGET
 def style_budget_var_fill(val):
     if isinstance(val, (int, float)):
-        if val > 0: return 'background-color: #A9D08E; color: black; font-weight: bold; text-align: right;'
+        if val >= -10: return 'background-color: #A9D08E; color: black; font-weight: bold; text-align: right;'
+        elif -20 <= val < -10: return 'background-color: #FFF2CC; color: black; font-weight: bold; text-align: right;'
+        elif -30 <= val < -20: return 'background-color: #FFC000; color: black; font-weight: bold; text-align: right;'
         else: return 'background-color: #FF8585; color: black; font-weight: bold; text-align: right;'
     return ''
 
@@ -159,7 +162,7 @@ with col_t2:
     df_final_ytd = pd.concat([df_t_ytd, df_total_ytd], ignore_index=True)
     df_final_ytd.insert(0, 'No', range(1, len(df_final_ytd) + 1))
     df_final_ytd.columns = ['No', 'Kebun', 'Aktual (Jg/Pkk)', 'Budget (Jg/Pkk)', 'Gap (Jg/Pkk)', 'Var (%)']
-    st.dataframe(df_final_ytd.style.format({'Aktual (Jg/Pkk)': '{:,.2f}', 'Budget (Jg/Pkk)': '{:,.2f}', 'Gap (Jg/Pkk)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Jg/Pkk)']).map(style_budget_var_fill, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_rjp_bgt_kebun_ytd")
+    st.dataframe(df_final_ytd.style.format({'Aktual (Jg/Pkk)': '{:,.2f}', 'Budget (Jg/Pkk)', 'Gap (Jg/Pkk)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Jg/Pkk)']).map(style_budget_var_fill, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_rjp_bgt_kebun_ytd")
 
 
 # --- 5. SUB DETAIL PER AFDELING ---
