@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- 2. FUNGSI LOADING DATA ---
+# --- 2. FUNGSI LOADING DATA BERDASARKAN PARAMETER FILTER ---
 @st.cache_data
 def load_data(tipe_target):
     if tipe_target == "Budget":
@@ -23,15 +23,16 @@ def load_data(tipe_target):
     if not os.path.exists(file_name):
         return pd.DataFrame(), nama_target
 
+    # Mengembalikan format pembacaan murni sesuai kode asli Bapak
     try:
         df = pd.read_csv(file_name, sep=";", decimal=",")
     except:
         df = pd.read_csv(file_name, sep=",", decimal=",")
         
-    # Bersihkan spasi liar pada nama kolom
+    # Bersihkan spasi liar pada nama kolom agar tidak memicu error indeks duplikat
     df.columns = df.columns.str.strip()
     
-    # Standarisasi kolom Bulan menjadi huruf kapital murni
+    # Standarisasi kolom Bulan menjadi huruf kapital murni tanpa mengubah struktur data lainnya
     if 'Bulan' in df.columns:
         df['Bulan'] = df['Bulan'].astype(str).str.strip().str.upper()
         
@@ -41,10 +42,11 @@ def load_data(tipe_target):
 st.markdown("<h1 style='text-align: center; color: #28348A;'>🌴 DASHBOARD PRODUKSI PT BKB & PT FFD</h1>", unsafe_allow_html=True)
 st.markdown("---")
 
-# --- 4. SUSUNAN FILTER UTAMA ---
+# --- 4. SUSUNAN FILTER UTAMA (DI BAWAH JUDUL) ---
 col1, col2, col3 = st.columns([1.5, 1.2, 1.8])
 
 with col1:
+    # Filter 1: Capaian terhadap pilihan Budget atau Sensus
     pilihan_target = st.radio(
         "🎯 Capaian terhadap :",
         ["Budget", "Sensus"],
@@ -52,6 +54,7 @@ with col1:
         key="global_target_type_picker"
     )
 
+# Memuat data secara real-time dari file csv yang sesuai pilihan filter 1
 df_raw, nama_target_label = load_data(pilihan_target)
 
 if df_raw.empty:
@@ -59,7 +62,13 @@ if df_raw.empty:
     st.stop()
 
 with col2:
-    list_bulan = list(df_raw['Bulan'].unique()) if 'Bulan' in df_raw.columns else ['MEI']
+    # Filter 2: Pilihan Bulan Analisis mengambil dari kolom 'Bulan' di CSV + Menambahkan Opsi CAWU & SEMESTER
+    list_bulan_raw = list(df_raw['Bulan'].unique()) if 'Bulan' in df_raw.columns else ['MEI']
+    
+    # Memastikan opsi makro ditambahkan ke list pilihan tanpa merusak struktur data asli
+    opsi_tambahan = ["CAWU I", "CAWU II", "CAWU III", "SEMESTER I", "SEMESTER II"]
+    list_bulan = list_bulan_raw + [opsi for opsi in opsi_tambahan if opsi not in list_bulan_raw]
+    
     default_idx = list_bulan.index("MEI") if "MEI" in list_bulan else 0
     
     pilihan_bulan = st.selectbox(
@@ -70,54 +79,56 @@ with col2:
     )
 
 with col3:
+    # Filter 3: Menu Tabs Analisis sesuai urutan permintaan Bapak
     menu_analisis = st.selectbox(
         "📊 Pilih Menu Analisis:",
         ["Yield", "RJP", "BJR", "Trend per Kebun", "Trend per Afdeling"],
         key="menu_dashboard_navigator_main"
     )
 
-st.markdown("---")
+st.markdown("---") # Garis pembatas tebal penanda area visualisasi grafik di bawahnya
 
 # --- 5. MENYIMPAN VARIABEL GLOBAL KE SESSION STATE ---
+# Agar file-file sub-tab di folder 'tabs' bisa langsung membaca datanya tanpa error
 st.session_state["df_raw"] = df_raw
 st.session_state["pilihan_bulan"] = pilihan_bulan
 st.session_state["list_bulan"] = list_bulan
 
-# --- 6. ROUTING EKSEKUSI FILE SUB-TAB ---
-# Menggunakan konteks lokal terisolasi untuk menghindari tabrakan variabel Plotly
-local_context = {"st": st, "pd": pd, "np": np}
+# --- 6. ROUTING EKSEKUSI FILE SUB-TAB DI FOLDER TABS ---
+global_context = globals()
 
 if menu_analisis == "Yield":
+    # Menentukan file sub-tab yang akan dibuka berdasarkan filter "Capaian terhadap"
     file_tab = "tabs/yield_perf.py" if pilihan_target == "Budget" else "tabs/yield_sensus.py"
     if os.path.exists(file_tab):
-        exec(open(file_tab).read(), local_context)
+        exec(open(file_tab).read(), global_context)
     else:
         st.warning(f"File '{file_tab}' tidak ditemukan di folder tabs.")
 
 elif menu_analisis == "RJP":
     file_tab = "tabs/janjang_pokok.py" if pilihan_target == "Budget" else "tabs/janjang_sensus.py"
     if os.path.exists(file_tab):
-        exec(open(file_tab).read(), local_context)
+        exec(open(file_tab).read(), global_context)
     else:
         st.warning(f"File '{file_tab}' tidak ditemukan di folder tabs.")
 
 elif menu_analisis == "BJR":
     file_tab = "tabs/bjr_perf.py" if pilihan_target == "Budget" else "tabs/bjr_sensus.py"
     if os.path.exists(file_tab):
-        exec(open(file_tab).read(), local_context)
+        exec(open(file_tab).read(), global_context)
     else:
         st.warning(f"File '{file_tab}' tidak ditemukan di folder tabs.")
 
 elif menu_analisis == "Trend per Kebun":
     file_tab = "tabs/trend_kebun.py"
     if os.path.exists(file_tab):
-        exec(open(file_tab).read(), local_context)
+        exec(open(file_tab).read(), global_context)
     else:
         st.info("ℹ️ File 'tabs/trend_kebun.py' belum dimasukkan ke folder.")
 
 elif menu_analisis == "Trend per Afdeling":
     file_tab = "tabs/trend_afdeling.py"
     if os.path.exists(file_tab):
-        exec(open(file_tab).read(), local_context)
+        exec(open(file_tab).read(), global_context)
     else:
         st.info("ℹ️ File 'tabs/trend_afdeling.py' belum dimasukkan ke folder.")
