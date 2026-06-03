@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- 2. FUNGSI LOADING DATA OTOMATIS & TOLERAN ---
+# --- 2. FUNGSI LOADING DATA BERDASARKAN PARAMETER FILTER ---
 @st.cache_data
 def load_data(tipe_target):
     if tipe_target == "Budget":
@@ -23,41 +23,18 @@ def load_data(tipe_target):
     if not os.path.exists(file_name):
         return pd.DataFrame(), nama_target
 
+    # Mengembalikan format pembacaan murni sesuai kode asli Bapak
     try:
-        # Menggunakan sep=None dan engine='python' agar otomatis mengenali separator (seperti ; atau ,)
-        df = pd.read_csv(file_name, sep=None, engine='python', encoding='utf-8')
-    except Exception as e:
-        try:
-            df = pd.read_csv(file_name, sep=None, engine='python', encoding='latin-1')
-        except:
-            return pd.DataFrame(), nama_target
+        df = pd.read_csv(file_name, sep=";", decimal=",")
+    except:
+        df = pd.read_csv(file_name, sep=",", decimal=",")
         
-    # Bersihkan spasi liar pada nama kolom dan buat huruf besar semua untuk standardisasi internal
+    # Bersihkan spasi liar pada nama kolom agar tidak memicu error indeks duplikat
     df.columns = df.columns.str.strip()
     
-    # Deteksi dan standarkan kolom kunci operasional
-    kolom_map = {}
-    for col in df.columns:
-        c_upper = col.upper()
-        if c_upper in ['BULAN', 'MONTH']: kolom_map[col] = 'Bulan'
-        elif c_upper in ['KEBUN', 'ESTATE', 'SITE']: kolom_map[col] = 'Kebun'
-        elif c_upper in ['AFDELING', 'AFD']: kolom_map[col] = 'Afdeling'
-        elif c_upper in ['LUAS', 'HA', 'LUAS HA']: kolom_map[col] = 'Luas'
-        elif 'AKT' in c_upper or 'REAL' in c_upper: kolom_map[col] = 'Kg Akt.'
-        elif 'BGT' in c_upper or 'BUD' in c_upper or 'ANGG' in c_upper: kolom_map[col] = 'Kg Bgt.'
-        elif 'SNS' in c_upper or 'SEN' in c_upper or 'PRED' in c_upper: kolom_map[col] = 'Kg Sns.'
-    
-    df = df.rename(columns=kolom_map)
-    
-    # Standarisasi isi kolom Bulan menjadi nama pendek huruf kapital
+    # Standarisasi kolom Bulan menjadi huruf kapital murni tanpa mengubah struktur data lainnya
     if 'Bulan' in df.columns:
         df['Bulan'] = df['Bulan'].astype(str).str.strip().str.upper()
-        df['Bulan'] = df['Bulan'].replace({
-            "JANUARI": "JAN", "FEBRUARI": "FEB", "MARET": "MAR", 
-            "APRIL": "APR", "MEI": "MEI", "JUNI": "JUN", 
-            "JULI": "JUL", "AGUSTUS": "AGS", "SEPTEMBER": "SEP", 
-            "OKTOBER": "OKT", "NOVEMBER": "NOV", "DESEMBER": "DES"
-        })
         
     return df, nama_target
 
@@ -65,10 +42,11 @@ def load_data(tipe_target):
 st.markdown("<h1 style='text-align: center; color: #28348A;'>🌴 DASHBOARD PRODUKSI PT BKB & PT FFD</h1>", unsafe_allow_html=True)
 st.markdown("---")
 
-# --- 4. SUSUNAN FILTER UTAMA ---
+# --- 4. SUSUNAN FILTER UTAMA (DI BAWAH JUDUL) ---
 col1, col2, col3 = st.columns([1.5, 1.2, 1.8])
 
 with col1:
+    # Filter 1: Capaian terhadap pilihan Budget atau Sensus
     pilihan_target = st.radio(
         "🎯 Capaian terhadap :",
         ["Budget", "Sensus"],
@@ -76,20 +54,16 @@ with col1:
         key="global_target_type_picker"
     )
 
-# Memuat data
+# Memuat data secara real-time dari file csv yang sesuai pilihan filter 1
 df_raw, nama_target_label = load_data(pilihan_target)
 
 if df_raw.empty:
-    st.error(f"⚠️ File data untuk Analisa {pilihan_target} kosong atau formatnya tidak sesuai!")
+    st.error(f"⚠️ File data untuk Analisa {pilihan_target} tidak ditemukan di direktori!")
     st.stop()
 
 with col2:
-    # Mengambil list bulan yang tersedia di CSV secara dinamis
-    if 'Bulan' in df_raw.columns and len(df_raw['Bulan'].unique()) > 0:
-        list_bulan = list(df_raw['Bulan'].dropna().unique())
-    else:
-        list_bulan = ['MEI']
-        
+    # Filter 2: Pilihan Bulan Analisis mengambil dari kolom 'Bulan' di CSV
+    list_bulan = list(df_raw['Bulan'].unique()) if 'Bulan' in df_raw.columns else ['MEI']
     default_idx = list_bulan.index("MEI") if "MEI" in list_bulan else 0
     
     pilihan_bulan = st.selectbox(
@@ -100,49 +74,43 @@ with col2:
     )
 
 with col3:
+    # Filter 3: Menu Tabs Analisis sesuai urutan permintaan Bapak
     menu_analisis = st.selectbox(
         "📊 Pilih Menu Analisis:",
         ["Yield", "RJP", "BJR", "Trend per Kebun", "Trend per Afdeling"],
         key="menu_dashboard_navigator_main"
     )
 
-st.markdown("---")
+st.markdown("---") # Garis pembatas tebal penanda area visualisasi grafik di bawahnya
 
 # --- 5. MENYIMPAN VARIABEL GLOBAL KE SESSION STATE ---
+# Agar file-file sub-tab di folder 'tabs' bisa langsung membaca datanya tanpa error
 st.session_state["df_raw"] = df_raw
 st.session_state["pilihan_bulan"] = pilihan_bulan
 st.session_state["list_bulan"] = list_bulan
 
-# --- 6. ROUTING EKSEKUSI FILE SUB-TAB ---
+# --- 6. ROUTING EKSEKUSI FILE SUB-TAB DI FOLDER TABS ---
 global_context = globals()
 
 if menu_analisis == "Yield":
+    # Menentukan file sub-tab yang akan dibuka berdasarkan filter "Capaian terhadap"
     file_tab = "tabs/yield_perf.py" if pilihan_target == "Budget" else "tabs/yield_sensus.py"
     if os.path.exists(file_tab):
-        try:
-            exec(open(file_tab).read(), global_context)
-        except Exception as e:
-            st.error(f"Terjadi kesalahan saat memuat visualisasi Yield: {e}")
+        exec(open(file_tab).read(), global_context)
     else:
         st.warning(f"File '{file_tab}' tidak ditemukan di folder tabs.")
 
 elif menu_analisis == "RJP":
     file_tab = "tabs/janjang_pokok.py" if pilihan_target == "Budget" else "tabs/janjang_sensus.py"
     if os.path.exists(file_tab):
-        try:
-            exec(open(file_tab).read(), global_context)
-        except Exception as e:
-            st.error(f"Terjadi kesalahan saat memuat visualisasi RJP: {e}")
+        exec(open(file_tab).read(), global_context)
     else:
         st.warning(f"File '{file_tab}' tidak ditemukan di folder tabs.")
 
 elif menu_analisis == "BJR":
     file_tab = "tabs/bjr_perf.py" if pilihan_target == "Budget" else "tabs/bjr_sensus.py"
     if os.path.exists(file_tab):
-        try:
-            exec(open(file_tab).read(), global_context)
-        except Exception as e:
-            st.error(f"Terjadi kesalahan saat memuat visualisasi BJR: {e}")
+        exec(open(file_tab).read(), global_context)
     else:
         st.warning(f"File '{file_tab}' tidak ditemukan di folder tabs.")
 
