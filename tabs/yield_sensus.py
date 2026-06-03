@@ -27,25 +27,31 @@ df_ytd = df_raw[df_raw['Bulan'].isin(bulan_ytd)].copy()
 luas_kebun_mtd = df_mtd.groupby(['Kebun', 'Afdeling'])['Luas'].first().reset_index().groupby('Kebun')['Luas'].sum()
 luas_kebun_ytd = df_ytd.groupby(['Kebun', 'Afdeling'])['Luas'].first().reset_index().groupby('Kebun')['Luas'].sum()
 
-# Agregasi Level Kebun - Bulan Ini (MTD)
+# MTD Level Kebun
 df_k_mtd = df_mtd.groupby('Kebun').agg({'Kg Akt.': 'sum', 'Kg Sns.': 'sum'}).reset_index()
 df_k_mtd['Luas'] = df_k_mtd['Kebun'].map(luas_kebun_mtd)
 df_k_mtd['Aktual'] = df_k_mtd['Kg Akt.'] / df_k_mtd['Luas'] / 1000
 df_k_mtd['Target'] = df_k_mtd['Kg Sns.'] / df_k_mtd['Luas'] / 1000
+df_k_mtd['Pct'] = (df_k_mtd['Aktual'] / df_k_mtd['Target'] * 100).fillna(0)
 
-# Agregasi Level Kebun - s.d Bulan Ini (YTD)
+# YTD Level Kebun
 df_k_ytd = df_ytd.groupby('Kebun').agg({'Kg Akt.': 'sum', 'Kg Sns.': 'sum'}).reset_index()
 df_k_ytd['Luas'] = df_k_ytd['Kebun'].map(luas_kebun_ytd)
 df_k_ytd['Aktual'] = df_k_ytd['Kg Akt.'] / df_k_ytd['Luas'] / 1000
 df_k_ytd['Target'] = df_k_ytd['Kg Sns.'] / df_k_ytd['Luas'] / 1000
+df_k_ytd['Pct'] = (df_k_ytd['Aktual'] / df_k_ytd['Target'] * 100).fillna(0)
 
-# --- 3. VISUALISASI GRAFIK BERSEBELAHAN (COLUMNS) ---
+# --- 3. VISUALISASI GRAFIK BERSEBELAHAN DI ATAS ---
 col_g1, col_g2 = st.columns(2)
 
 with col_g1:
     st.markdown(f"##### 📊 Grafik Yield - Bulan Ini ({pilihan_bulan})")
     fig_mtd = go.Figure()
-    fig_mtd.add_trace(go.Bar(x=df_k_mtd["Kebun"], y=df_k_mtd["Aktual"], name="Aktual MTD", marker_color="#28348A", width=0.35))
+    fig_mtd.add_trace(go.Bar(
+        x=df_k_mtd["Kebun"], y=df_k_mtd["Aktual"], name="Aktual MTD", marker_color="#28348A", width=0.35,
+        text=[f"{p:,.1f}%" for p in df_k_mtd["Pct"]], textposition="inside", insidetextanchor="bottom",
+        textfont=dict(color="white", size=12, family="Arial Black")
+    ))
     fig_mtd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Sensus MTD'))
     
     for idx, row in df_k_mtd.iterrows():
@@ -58,7 +64,11 @@ with col_g1:
 with col_g2:
     st.markdown(f"##### 📊 Grafik Yield - s.d Bulan Ini (YTD {pilihan_bulan})")
     fig_ytd = go.Figure()
-    fig_ytd.add_trace(go.Bar(x=df_k_ytd["Kebun"], y=df_k_ytd["Aktual"], name="Aktual YTD", marker_color="#28348A", width=0.35))
+    fig_ytd.add_trace(go.Bar(
+        x=df_k_ytd["Kebun"], y=df_k_ytd["Aktual"], name="Aktual YTD", marker_color="#28348A", width=0.35,
+        text=[f"{p:,.1f}%" for p in df_k_ytd["Pct"]], textposition="inside", insidetextanchor="bottom",
+        textfont=dict(color="white", size=12, family="Arial Black")
+    ))
     fig_ytd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Sensus YTD'))
     
     for idx, row in df_k_ytd.iterrows():
@@ -70,47 +80,47 @@ with col_g2:
 
 st.markdown("---")
 
-# --- 4. TABEL DATA SUMMARY KEBUN (YTD) ---
-st.markdown(f"##### 📋 Tabel Data Summary Yield s.d Bulan Ini (YTD)")
+# --- 4. DATA FRAME COMPILATION FOR MTD & YTD TABLE ---
+st.markdown(f"##### 📋 Tabel Summary Yield Performa (MTD vs YTD)")
 
-df_tabel = df_k_ytd[['Kebun', 'Aktual', 'Target']].copy()
-df_tabel.columns = ['Kebun', 'Akt (Ton/Ha)', 'Bgt (Ton/Ha)'] # Menggunakan Bgt sebagai placeholder target
-df_tabel['Var (Ton/Ha)'] = df_tabel['Akt (Ton/Ha)'] - df_tabel['Bgt (Ton/Ha)']
-df_tabel['Var (%)'] = (df_tabel['Var (Ton/Ha)'] / df_tabel['Bgt (Ton/Ha)']) * 100
+df_t_kebun = pd.DataFrame({'Kebun': df_k_mtd['Kebun'].unique()})
 
-total_luas = luas_kebun_ytd.sum()
-total_kg_akt = df_ytd['Kg Akt.'].sum()
-total_kg_sns = df_ytd['Kg Sns.'].sum()
+# Mapping MTD
+df_t_kebun['MTD_Akt'] = df_t_kebun['Kebun'].map(df_k_mtd.set_index('Kebun')['Aktual'])
+df_t_kebun['MTD_Sns'] = df_t_kebun['Kebun'].map(df_k_mtd.set_index('Kebun')['Target'])
+df_t_kebun['MTD_Var'] = df_t_kebun['MTD_Akt'] - df_t_kebun['MTD_Sns']
+df_t_kebun['MTD_Var_Pct'] = (df_t_kebun['MTD_Var'] / df_t_kebun['MTD_Sns']) * 100
 
-site_akt = total_kg_akt / total_luas / 1000
-site_sns = total_kg_sns / total_luas / 1000
-site_var_ton = site_akt - site_sns
-site_var_pct = (site_var_ton / site_sns) * 100
+# Mapping YTD
+df_t_kebun['YTD_Akt'] = df_t_kebun['Kebun'].map(df_k_ytd.set_index('Kebun')['Aktual'])
+df_t_kebun['YTD_Sns'] = df_t_kebun['Kebun'].map(df_k_ytd.set_index('Kebun')['Target'])
+df_t_kebun['YTD_Var'] = df_t_kebun['YTD_Akt'] - df_t_kebun['YTD_Sns']
+df_t_kebun['YTD_Var_Pct'] = (df_t_kebun['YTD_Var'] / df_t_kebun['YTD_Sns']) * 100
 
-row_total = pd.DataFrame([{
+# Total Site
+luas_site_mtd, luas_site_ytd = luas_kebun_mtd.sum(), luas_kebun_ytd.sum()
+site_mtd_akt = df_mtd['Kg Akt.'].sum() / luas_site_mtd / 1000
+site_mtd_sns = df_mtd['Kg Sns.'].sum() / luas_site_mtd / 1000
+site_mtd_var = site_mtd_akt - site_mtd_sns
+
+site_ytd_akt = df_ytd['Kg Akt.'].sum() / luas_site_ytd / 1000
+site_ytd_sns = df_ytd['Kg Sns.'].sum() / luas_site_ytd / 1000
+site_ytd_var = site_ytd_akt - site_ytd_sns
+
+df_total = pd.DataFrame([{
     'Kebun': 'TOTAL SITE',
-    'Akt (Ton/Ha)': site_akt,
-    'Bgt (Ton/Ha)': site_sns,
-    'Var (Ton/Ha)': site_var_ton,
-    'Var (%)': site_var_pct
+    'MTD_Akt': site_mtd_akt, 'MTD_Bgt': site_mtd_sns, 'MTD_Var': site_mtd_var, 'MTD_Var_Pct': (site_mtd_var/site_mtd_sns)*100,
+    'YTD_Akt': site_ytd_akt, 'YTD_Bgt': site_ytd_sns, 'YTD_Var': site_ytd_var, 'YTD_Var_Pct': (site_ytd_var/site_ytd_sns)*100
 }])
 
-df_tabel = pd.concat([df_tabel, row_total], ignore_index=True)
-df_tabel.insert(0, 'No', range(1, len(df_tabel) + 1))
+df_final = pd.concat([df_t_kebun, df_total], ignore_index=True)
+df_final.insert(0, 'No', range(1, len(df_final) + 1))
+
+df_final.columns = [
+    'No', 'Kebun', 
+    'Akt (MTD)', 'Bgt (MTD)', 'Var (MTD)', 'Var MTD (%)',
+    'Akt (YTD)', 'Bgt (YTD)', 'Var (YTD)', 'Var YTD (%)'
+]
 
 def style_variance(val):
     if isinstance(val, (int, float)):
-        color = 'red' if val < 0 else 'green'
-        return f'color: {color}; font-weight: bold;'
-    return ''
-
-st.dataframe(
-    df_tabel.style.format({
-        'Akt (Ton/Ha)': '{:,.2f}',
-        'Bgt (Ton/Ha)': '{:,.2f}',
-        'Var (Ton/Ha)': '{:+,.2f}',
-        'Var (%)': '{:+,.2f}%'
-    }).map(style_variance, subset=['Var (Ton/Ha)', 'Var (%)']),
-    use_container_width=True,
-    hide_index=True
-)
