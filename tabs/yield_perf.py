@@ -3,10 +3,10 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
-df_raw = st.session_state["df_raw"]
+df_raw = st.session_state["df_raw"].copy()
 pilihan_bulan = st.session_state["pilihan_bulan"]
 
-st.markdown(f"### 🌱 Yield terhadap Budget (Ton/Ha)")
+st.markdown(f"### 🌱 Yield terhadap Budget (Bulan Operasional: {pilihan_bulan})")
 
 # --- 1. PROSES FILTER TIMEFRAME (MTD & YTD) ---
 df_mtd = df_raw[df_raw['Bulan'] == pilihan_bulan].copy()
@@ -75,11 +75,9 @@ with col_g2:
     fig_ytd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
     st.plotly_chart(fig_ytd, use_container_width=True)
 
-# --- 4. DATA FRAME COMPILATION & STYLING FOR TABLES (KEBUN) ---
-def style_gap_black(val):
-    return 'color: black; font-weight: bold;'
-
-def style_budget_var_fill(val):
+# --- 4. TABEL KEBUN STYLING ---
+def style_gap_black_p(val): return 'color: black; font-weight: bold;'
+def style_bgt_var_fill_p(val):
     if isinstance(val, (int, float)):
         if val >= -10: return 'background-color: #A9D08E; color: black; font-weight: bold; text-align: right;'
         elif -20 <= val < -10: return 'background-color: #FFF2CC; color: black; font-weight: bold; text-align: right;'
@@ -108,7 +106,7 @@ with col_t1:
     df_final_mtd = pd.concat([df_t_mtd, df_total_mtd], ignore_index=True)
     df_final_mtd.insert(0, 'No', range(1, len(df_final_mtd) + 1))
     df_final_mtd.columns = ['No', 'Kebun', 'Aktual (Ton/Ha)', 'Budget (Ton/Ha)', 'Gap (Ton/Ha)', 'Var (%)']
-    st.dataframe(df_final_mtd.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Budget (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Ton/Ha)']).map(style_budget_var_fill, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True)
+    st.dataframe(df_final_mtd.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Budget (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black_p, subset=['Gap (Ton/Ha)']).map(style_bgt_var_fill_p, subset=['Var (%)']), use_container_width=True, hide_index=True)
 
 with col_t2:
     st.markdown(f"##### 📋 Data Yield Per Kebun - s.d Bulan Ini")
@@ -128,14 +126,13 @@ with col_t2:
     df_final_ytd = pd.concat([df_t_ytd, df_total_ytd], ignore_index=True)
     df_final_ytd.insert(0, 'No', range(1, len(df_final_ytd) + 1))
     df_final_ytd.columns = ['No', 'Kebun', 'Aktual (Ton/Ha)', 'Budget (Ton/Ha)', 'Gap (Ton/Ha)', 'Var (%)']
-    st.dataframe(df_final_ytd.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Budget (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Ton/Ha)']).map(style_budget_var_fill, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True)
+    st.dataframe(df_final_ytd.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Budget (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black_p, subset=['Gap (Ton/Ha)']).map(style_bgt_var_fill_p, subset=['Var (%)']), use_container_width=True, hide_index=True)
 
 # --- 5. SUB DETAIL PER AFDELING ---
 st.markdown("---")
 st.markdown("### 🔎 Detail per Afdeling")
-
 list_kebun = sorted(df_raw['Kebun'].dropna().unique())
-kebun_terpilih = st.selectbox("Pilih Kebun untuk melihat detail Afdeling:", list_kebun, key="sb_bgt_afd")
+kebun_terpilih = st.selectbox("Pilih Kebun untuk melihat detail Afdeling:", list_kebun, key="sb_bgt_afd_p")
 
 df_m_afd = df_mtd[df_mtd['Kebun'] == kebun_terpilih].copy()
 df_y_afd = df_ytd[df_ytd['Kebun'] == kebun_terpilih].copy()
@@ -178,30 +175,4 @@ if not df_m_afd.empty:
             fig_aytd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
             if row["Pct"] < 90 or row["Pct"] > 110:
                 fig_aytd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
-        fig_aytd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
-        st.plotly_chart(fig_aytd, use_container_width=True)
-
-    col_ta1, col_ta2 = st.columns(2)
-    with col_ta1:
-        st.markdown(f"##### 📋 Data Yield Per Afdeling - Bulan Ini")
-        df_ta_mtd = pd.DataFrame({'Afdeling': df_a_mtd['Afdeling'].unique()})
-        df_ta_mtd['Aktual'] = df_ta_mtd['Afdeling'].map(df_a_mtd.set_index('Afdeling')['Aktual'])
-        df_ta_mtd['Budget'] = df_ta_mtd['Afdeling'].map(df_a_mtd.set_index('Afdeling')['Target'])
-        df_ta_mtd['Var'] = df_ta_mtd['Aktual'] - df_ta_mtd['Budget']
-        df_ta_mtd['Pct'] = df_ta_mtd['Afdeling'].map(df_a_mtd.set_index('Afdeling')['Pct']) - 100
-        df_ta_mtd.insert(0, 'No', range(1, len(df_ta_mtd) + 1))
-        df_ta_mtd.columns = ['No', 'Afdeling', 'Aktual (Ton/Ha)', 'Budget (Ton/Ha)', 'Gap (Ton/Ha)', 'Var (%)']
-        st.dataframe(df_ta_mtd.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Budget (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Ton/Ha)']).map(style_budget_var_fill, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True)
-
-    with col_ta2:
-        st.markdown(f"##### 📋 Data Yield Per Afdeling - s.d Bulan Ini")
-        df_ta_ytd = pd.DataFrame({'Afdeling': df_a_ytd['Afdeling'].unique()})
-        df_ta_ytd['Aktual'] = df_ta_ytd['Afdeling'].map(df_a_ytd.set_index('Afdeling')['Aktual'])
-        df_ta_ytd['Budget'] = df_ta_ytd['Afdeling'].map(df_a_ytd.set_index('Afdeling')['Target'])
-        df_ta_ytd['Var'] = df_ta_ytd['Aktual'] - df_ta_ytd['Budget']
-        df_ta_ytd['Pct'] = df_ta_ytd['Afdeling'].map(df_a_ytd.set_index('Afdeling')['Pct']) - 100
-        df_ta_ytd.insert(0, 'No', range(1, len(df_ta_ytd) + 1))
-        df_ta_ytd.columns = ['No', 'Afdeling', 'Aktual (Ton/Ha)', 'Budget (Ton/Ha)', 'Gap (Ton/Ha)', 'Var (%)']
-        st.dataframe(df_ta_ytd.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Budget (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Ton/Ha)']).map(style_budget_var_fill, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True)
-else:
-    st.warning("Tidak ada data Afdeling untuk kebun ini.")
+        fig_aytd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict

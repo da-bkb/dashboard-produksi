@@ -44,13 +44,9 @@ def load_data():
         df = pd.DataFrame(rows)
 
     # --- STANDARISASI KOLOM OTOMATIS (Mencegah KeyError) ---
-    # Hapus spasi di depan/belakang nama kolom dan ubah ke huruf besar
     df.columns = df.columns.str.strip().str.upper()
     
-    # Deteksi & Mapping Fleksibel ke penamaan internal aplikasi
     kolom_map = {}
-    
-    # 1. Cari kolom Kebun
     for col in df.columns:
         if col in ['KEBUN', 'ESTATE', 'SITE']: kolom_map[col] = 'Kebun'
         elif col in ['AFDELING', 'AFD']: kolom_map[col] = 'Afdeling'
@@ -62,7 +58,6 @@ def load_data():
         
     df = df.rename(columns=kolom_map)
     
-    # Standarisasi isi teks Bulan agar seragam huruf besar semua
     if 'Bulan' in df.columns:
         df['Bulan'] = df['Bulan'].astype(str).str.strip().str.upper()
         df['Bulan'] = df['Bulan'].replace({"AGUSTUS": "AGS", "MEI": "MEI", "MARET": "MAR"})
@@ -108,20 +103,27 @@ tab_budget, tab_sensus, tab_periodik = st.tabs([
     "📅 Yield Periodik"
 ])
 
+# --- 6. EKSEKUSI FILE KODE TIAP TAB SECARA DIRECT ---
 with tab_budget:
-    try:
-        from tabs import yield_perf
-    except ImportError as e:
-        st.error(f"Gagal memuat file `tabs/yield_perf.py`. Error: {e}")
+    if os.path.exists("tabs/yield_perf.py"):
+        with open("tabs/yield_perf.py", "r", encoding="utf-8") as f:
+            code = f.read()
+        exec(code)
+    else:
+        st.error("File `tabs/yield_perf.py` tidak ditemukan.")
 
 with tab_sensus:
-    try:
-        from tabs import yield_sensus
-    except ImportError as e:
-        st.error(f"Gagal memuat file `tabs/yield_sensus.py`. Error: {e}")
+    if os.path.exists("tabs/yield_sensus.py"):
+        with open("tabs/yield_sensus.py", "r", encoding="utf-8") as f:
+            code = f.read()
+        exec(code)
+    else:
+        st.error("File `tabs/yield_sensus.py` tidak ditemukan.")
 
 with tab_periodik:
-    try:
-        from tabs import yield_periodik
-    except ImportError as e:
-        st.error(f"Gagal memuat file `tabs/yield_periodik.py`. Error: {e}")
+    if os.path.exists("tabs/yield_periodik.py"):
+        with open("tabs/yield_periodik.py", "r", encoding="utf-8") as f:
+            code = f.read()
+        exec(code)
+    else:
+        st.error("File `tabs/yield_periodik.py` tidak ditemukan. Pastikan Anda sudah membuat filenya di dalam folder tabs.")
