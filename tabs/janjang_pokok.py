@@ -90,7 +90,6 @@ with col_g1:
     fig_mtd.add_trace(go.Scatter(x=df_k_mtd["Kebun"], y=[None]*len(df_k_mtd), mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
     for idx, row in df_k_mtd.iterrows():
         fig_mtd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-        # KOREKSI RANGE PANAH MERAH BUDGET (+-10%)
         if row["Pct"] < 90 or row["Pct"] > 110:
             fig_mtd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
     fig_mtd.update_layout(template="plotly_white", yaxis_title="Janjang/Pokok", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
@@ -107,7 +106,6 @@ with col_g2:
     fig_ytd.add_trace(go.Scatter(x=df_k_ytd["Kebun"], y=[None]*len(df_k_ytd), mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
     for idx, row in df_k_ytd.iterrows():
         fig_ytd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-        # KOREKSI RANGE PANAH MERAH BUDGET (+-10%)
         if row["Pct"] < 90 or row["Pct"] > 110:
             fig_ytd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
     fig_ytd.update_layout(template="plotly_white", yaxis_title="Janjang/Pokok", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
@@ -118,7 +116,7 @@ with col_g2:
 def style_gap_black(val):
     return 'color: black; font-weight: bold;'
 
-# KOREKSI: DISESUAIKAN DENGAN LOGIKA WARNA YIELD BUDGET
+# PENULISAN SYNTAX OPERATOR SUDAH DIPERBAIKI (MENGGUNAKAN SIMBOL >= DAN <=)
 def style_budget_var_fill(val):
     if isinstance(val, (int, float)):
         if val >= -10: return 'background-color: #A9D08E; color: black; font-weight: bold; text-align: right;'
@@ -162,7 +160,7 @@ with col_t2:
     df_final_ytd = pd.concat([df_t_ytd, df_total_ytd], ignore_index=True)
     df_final_ytd.insert(0, 'No', range(1, len(df_final_ytd) + 1))
     df_final_ytd.columns = ['No', 'Kebun', 'Aktual (Jg/Pkk)', 'Budget (Jg/Pkk)', 'Gap (Jg/Pkk)', 'Var (%)']
-    st.dataframe(df_final_ytd.style.format({'Aktual (Jg/Pkk)': '{:,.2f}', 'Budget (Jg/Pkk)', 'Gap (Jg/Pkk)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Jg/Pkk)']).map(style_budget_var_fill, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_rjp_bgt_kebun_ytd")
+    st.dataframe(df_final_ytd.style.format({'Aktual (Jg/Pkk)': '{:,.2f}', 'Budget (Jg/Pkk)': '{:,.2f}', 'Gap (Jg/Pkk)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Jg/Pkk)']).map(style_budget_var_fill, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_rjp_bgt_kebun_ytd")
 
 
 # --- 5. SUB DETAIL PER AFDELING ---
@@ -199,7 +197,6 @@ if not df_m_afd.empty:
         fig_amtd.add_trace(go.Scatter(x=df_a_mtd["Afdeling"], y=[None]*len(df_a_mtd), mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
         for idx, row in df_a_mtd.iterrows():
             fig_amtd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-            # KOREKSI RANGE PANAH MERAH BUDGET (+-10%)
             if row["Pct"] < 90 or row["Pct"] > 110:
                 fig_amtd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
         fig_amtd.update_layout(template="plotly_white", yaxis_title="Janjang/Pokok", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
@@ -212,7 +209,6 @@ if not df_m_afd.empty:
         fig_aytd.add_trace(go.Scatter(x=df_a_ytd["Afdeling"], y=[None]*len(df_a_ytd), mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
         for idx, row in df_a_ytd.iterrows():
             fig_aytd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-            # KOREKSI RANGE PANAH MERAH BUDGET (+-10%)
             if row["Pct"] < 90 or row["Pct"] > 110:
                 fig_aytd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
         fig_aytd.update_layout(template="plotly_white", yaxis_title="Janjang/Pokok", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
