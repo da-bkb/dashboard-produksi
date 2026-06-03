@@ -38,7 +38,6 @@ def load_data():
 
     # JIKA KEDUA FILE ASLI ADA, LAKUKAN MERGE & STANDARISASI
     if df_bgt is not None and df_sns is not None:
-        # Peta pemetaan standar untuk kolom kunci penggabungan
         def dapatkan_kolom_map(columns):
             kolom_map = {}
             for col in columns:
@@ -54,27 +53,27 @@ def load_data():
         df_bgt = df_bgt.rename(columns=dapatkan_kolom_map(df_bgt.columns))
         df_sns = df_sns.rename(columns=dapatkan_kolom_map(df_sns.columns))
         
-        # Ambil kolom kunci dasar untuk merge
         kunci_merge = ['Kebun', 'Afdeling', 'Bulan']
         kunci_bgt = [col for col in kunci_merge if col in df_bgt.columns]
         kunci_sns = [col for col in kunci_merge if col in df_sns.columns]
-        
         kunci_bersama = list(set(kunci_bgt).intersection(set(kunci_sns)))
         
         if len(kunci_bersama) >= 2:
-            # Lakukan penggabungan data secara aman (Outer join)
-            df_merged = pd.merge(df_bgt, df_sns[[col for col in df_sns.columns if col not in ['Luas'] or col in kunci_bersama]], on=kunci_bersama, how='outer')
-            df = df_merged
+            # Drop kolom Luas dari df_sns sebelum merge untuk menghindari kolom ganda Luas_x dan Luas_y
+            if 'Luas' in df_sns.columns:
+                df_sns_clean = df_sns.drop(columns=['Luas'])
+            else:
+                df_sns_clean = df_sns
+                
+            # Gabungkan secara aman
+            df = pd.merge(df_bgt, df_sns_clean, on=kunci_bersama, how='outer')
         else:
-            st.error("Kolom relasi (Kebun/Afdeling/Bulan) di kedua file CSV tidak sinkron.")
+            st.error("Kolom relasi (Kebun/Afdeling/Bulan) tidak sinkron.")
             df = df_bgt
             
     elif df_bgt is not None:
-        st.warning("⚠️ Hanya file Rekap26.csv yang terdeteksi. Data Sensus kosong.")
         df = df_bgt
     else:
-        # Fallback cadangan mutlak jika dipanggil tanpa file di local testing
-        st.error("⚠️ File Rekap26.csv dan Rekap26_Sns.csv tidak ditemukan di direktori!")
         return pd.DataFrame(columns=['Bulan', 'Kebun', 'Afdeling', 'Luas', 'Kg Akt.', 'Kg Bgt.', 'Kg Sns.'])
 
     # Bersihkan spasi dan standardisasi nama bulan
@@ -82,10 +81,15 @@ def load_data():
         df['Bulan'] = df['Bulan'].astype(str).str.strip().str.upper()
         df['Bulan'] = df['Bulan'].replace({"AGUSTUS": "AGS", "MEI": "MEI", "MARET": "MAR"})
 
-    # Isi nilai kosong dengan 0 agar kalkulasi tidak menghasilkan NaN
+    # --- PERBAIKAN UTAMA: Konversi kolom numerik yang kebal terhadap TypeError ---
     numeric_cols = ['Luas', 'Kg Akt.', 'Kg Bgt.', 'Kg Sns.']
     for col in numeric_cols:
         if col in df.columns:
+            # Jika kolom tidak sengaja terduplikasi menjadi DataFrame, paksa ambil kolom pertamanya saja
+            if isinstance(df[col], pd.DataFrame):
+                df[col] = df[col].iloc[:, 0]
+            
+            # Konversi nilai ke numeric secara paksa dengan aman
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
         else:
             df[col] = 0.0
