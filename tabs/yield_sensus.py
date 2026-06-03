@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 df_raw = st.session_state["df_raw"]
 pilihan_bulan = st.session_state["pilihan_bulan"]
 
-# Format kalimat judul bersih tanpa kata Performance / Performa
+# Judul utama bersih tanpa kata Performance / Performa
 st.markdown(f"### 🎯 Yield terhadap Sensus (Ton/Ha)")
 
 # --- 1. PROSES FILTER TIMEFRAME (MTD & YTD) ---
@@ -42,27 +42,22 @@ df_k_ytd['Aktual'] = df_k_ytd['Kg Akt.'] / df_k_ytd['Luas'] / 1000
 df_k_ytd['Target'] = df_k_ytd['Kg Sns.'] / df_k_ytd['Luas'] / 1000
 df_k_ytd['Pct'] = (df_k_ytd['Aktual'] / df_k_ytd['Target'] * 100).fillna(0)
 
-# --- 3. VISUALISASI GRAFIK BERSEBELAHAN DI ATAS ---
+# --- 3. LAYOUT GRAFIK BERSEBELAHAN ---
 col_g1, col_g2 = st.columns(2)
 
 with col_g1:
     st.markdown(f"##### 📊 Grafik Yield - Bulan Ini ({pilihan_bulan})")
     fig_mtd = go.Figure()
     
-    # Batang Aktual (Nama Legend Bersih)
     fig_mtd.add_trace(go.Bar(
         x=df_k_mtd["Kebun"], y=df_k_mtd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35,
         text=[f"{p:,.1f}%" for p in df_k_mtd["Pct"]], textposition="inside", insidetextanchor="start",
         textfont=dict(color="white", size=12, family="Arial Black")
     ))
-    # Garis Target penanda di Legend
     fig_mtd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Sensus'))
     
-    # Render Target Line & Kondisi Panah Merah MTD Sensus
     for idx, row in df_k_mtd.iterrows():
         fig_mtd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-        
-        # LOGIKA BARU: Panah merah muncul jika di bawah 95% atau di atas 105%
         if row["Pct"] < 95 or row["Pct"] > 105:
             fig_mtd.add_annotation(
                 x=idx, y=row["Target"], ax=idx, ay=row["Aktual"],
@@ -74,24 +69,18 @@ with col_g1:
     st.plotly_chart(fig_mtd, use_container_width=True)
 
 with col_g2:
-    # Kalimat judul bersih dari YTD
     st.markdown(f"##### 📊 Grafik Yield - s.d Bulan Ini ({pilihan_bulan})")
     fig_ytd = go.Figure()
     
-    # Batang Aktual YTD (Nama Legend Bersih)
     fig_ytd.add_trace(go.Bar(
         x=df_k_ytd["Kebun"], y=df_k_ytd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35,
         text=[f"{p:,.1f}%" for p in df_k_ytd["Pct"]], textposition="inside", insidetextanchor="start",
         textfont=dict(color="white", size=12, family="Arial Black")
     ))
-    # Garis Target penanda di Legend
     fig_ytd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Sensus'))
     
-    # Render Target Line & Kondisi Panah Merah YTD Sensus
     for idx, row in df_k_ytd.iterrows():
         fig_ytd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-        
-        # LOGIKA BARU: Panah merah muncul jika di bawah 95% atau di atas 105%
         if row["Pct"] < 95 or row["Pct"] > 105:
             fig_ytd.add_annotation(
                 x=idx, y=row["Target"], ax=idx, ay=row["Aktual"],
@@ -102,62 +91,75 @@ with col_g2:
     fig_ytd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
     st.plotly_chart(fig_ytd, use_container_width=True)
 
-st.markdown("---")
 
-# --- 4. DATA FRAME COMPILATION FOR MTD & YTD TABLE ---
-# Format kalimat judul bersih tanpa kata Performa
-st.markdown(f"##### 📋 Tabel Summary Yield (MTD vs YTD)")
-
-df_t_kebun = pd.DataFrame({'Kebun': df_k_mtd['Kebun'].unique()})
-
-# Mapping MTD
-df_t_kebun['MTD_Akt'] = df_t_kebun['Kebun'].map(df_k_mtd.set_index('Kebun')['Aktual'])
-df_t_kebun['MTD_Sns'] = df_t_kebun['Kebun'].map(df_k_mtd.set_index('Kebun')['Target'])
-df_t_kebun['MTD_Var'] = df_t_kebun['MTD_Akt'] - df_t_kebun['MTD_Sns']
-df_t_kebun['MTD_Var_Pct'] = (df_t_kebun['MTD_Var'] / df_t_kebun['MTD_Sns']) * 100
-
-# Mapping YTD
-df_t_kebun['YTD_Akt'] = df_t_kebun['Kebun'].map(df_k_ytd.set_index('Kebun')['Aktual'])
-df_t_kebun['YTD_Sns'] = df_t_kebun['Kebun'].map(df_k_ytd.set_index('Kebun')['Target'])
-df_t_kebun['YTD_Var'] = df_t_kebun['YTD_Akt'] - df_t_kebun['YTD_Sns']
-df_t_kebun['YTD_Var_Pct'] = (df_t_kebun['YTD_Var'] / df_t_kebun['YTD_Sns']) * 100
-
-# Total Site
-luas_site_mtd, luas_site_ytd = luas_kebun_mtd.sum(), luas_kebun_ytd.sum()
-site_mtd_akt = df_mtd['Kg Akt.'].sum() / luas_site_mtd / 1000
-site_mtd_sns = df_mtd['Kg Sns.'].sum() / luas_site_mtd / 1000
-site_mtd_var = site_mtd_akt - site_mtd_sns
-
-site_ytd_akt = df_ytd['Kg Akt.'].sum() / luas_site_ytd / 1000
-site_ytd_sns = df_ytd['Kg Sns.'].sum() / luas_site_ytd / 1000
-site_ytd_var = site_ytd_akt - site_ytd_sns
-
-df_total = pd.DataFrame([{
-    'Kebun': 'TOTAL SITE',
-    'MTD_Akt': site_mtd_akt, 'MTD_Bgt': site_mtd_sns, 'MTD_Var': site_mtd_var, 'MTD_Var_Pct': (site_mtd_var/site_mtd_sns)*100,
-    'YTD_Akt': site_ytd_akt, 'YTD_Bgt': site_ytd_sns, 'YTD_Var': site_ytd_var, 'YTD_Var_Pct': (site_ytd_var/site_ytd_sns)*100
-}])
-
-df_final = pd.concat([df_t_kebun, df_total], ignore_index=True)
-df_final.insert(0, 'No', range(1, len(df_final) + 1))
-
-df_final.columns = [
-    'No', 'Kebun', 
-    'Akt (MTD)', 'Sns (MTD)', 'Var (MTD)', 'Var MTD (%)',
-    'Akt (YTD)', 'Sns (YTD)', 'Var (YTD)', 'Var YTD (%)'
-]
-
+# --- 4. DATA FRAME COMPILATION & SEPARATION FOR TABLES ---
 def style_variance(val):
     if isinstance(val, (int, float)):
         color = 'red' if val < 0 else 'green'
         return f'color: {color}; font-weight: bold;'
     return ''
 
-st.dataframe(
-    df_final.style.format({
-        'Akt (MTD)': '{:,.2f}', 'Sns (MTD)': '{:,.2f}', 'Var (MTD)': '{:+,.2f}', 'Var MTD (%)': '{:+,.2f}%',
-        'Akt (YTD)': '{:,.2f}', 'Sns (YTD)': '{:,.2f}', 'Var (YTD)': '{:+,.2f}', 'Var YTD (%)': '{:+,.2f}%'
-    }).map(style_variance, subset=['Var (MTD)', 'Var MTD (%)', 'Var (YTD)', 'Var YTD (%)']),
-    use_container_width=True,
-    hide_index=True
-)
+# Layout Tabel Bersebelahan Tepat di Bawah Masing-masing Grafik
+col_t1, col_t2 = st.columns(2)
+
+with col_t1:
+    st.markdown(f"##### 📋 Tabel Summary Yield - Bulan Ini ({pilihan_bulan})")
+    
+    df_t_mtd = pd.DataFrame({'Kebun': df_k_mtd['Kebun'].unique()})
+    df_t_mtd['Aktual'] = df_t_mtd['Kebun'].map(df_k_mtd.set_index('Kebun')['Aktual'])
+    df_t_mtd['Sensus'] = df_t_mtd['Kebun'].map(df_k_mtd.set_index('Kebun')['Target'])
+    df_t_mtd['Var'] = df_t_mtd['Aktual'] - df_t_mtd['Sensus']
+    df_t_mtd['Pct'] = df_t_mtd['Kebun'].map(df_k_mtd.set_index('Kebun')['Pct'])
+    
+    # Total Site MTD
+    luas_site_mtd = luas_kebun_mtd.sum()
+    site_mtd_akt = df_mtd['Kg Akt.'].sum() / luas_site_mtd / 1000
+    site_mtd_sns = df_mtd['Kg Sns.'].sum() / luas_site_mtd / 1000
+    site_mtd_var = site_mtd_akt - site_mtd_sns
+    site_mtd_pct = (site_mtd_akt / site_mtd_sns * 100) if site_mtd_sns > 0 else 0
+    
+    df_total_mtd = pd.DataFrame([{
+        'Kebun': 'TOTAL SITE', 'Aktual': site_mtd_akt, 'Sensus': site_mtd_sns, 'Var': site_mtd_var, 'Pct': site_mtd_pct
+    }])
+    
+    df_final_mtd = pd.concat([df_t_mtd, df_total_mtd], ignore_index=True)
+    df_final_mtd.insert(0, 'No', range(1, len(df_final_mtd) + 1))
+    df_final_mtd.columns = ['No', 'Kebun', 'Aktual', 'Sensus', 'Var', 'Capaian (%)']
+    
+    st.dataframe(
+        df_final_mtd.style.format({
+            'Aktual': '{:,.2f}', 'Sensus': '{:,.2f}', 'Var': '{:+,.2f}', 'Capaian (%)': '{:,.1f}%'
+        }).map(style_variance, subset=['Var']),
+        use_container_width=True, hide_index=True
+    )
+
+with col_t2:
+    st.markdown(f"##### 📋 Tabel Summary Yield - s.d Bulan Ini ({pilihan_bulan})")
+    
+    df_t_ytd = pd.DataFrame({'Kebun': df_k_ytd['Kebun'].unique()})
+    df_t_ytd['Aktual'] = df_t_ytd['Kebun'].map(df_k_ytd.set_index('Kebun')['Aktual'])
+    df_t_ytd['Sensus'] = df_t_ytd['Kebun'].map(df_k_ytd.set_index('Kebun')['Target'])
+    df_t_ytd['Var'] = df_t_ytd['Aktual'] - df_t_ytd['Sensus']
+    df_t_ytd['Pct'] = df_t_ytd['Kebun'].map(df_k_ytd.set_index('Kebun')['Pct'])
+    
+    # Total Site YTD
+    luas_site_ytd = luas_kebun_ytd.sum()
+    site_ytd_akt = df_ytd['Kg Akt.'].sum() / luas_site_ytd / 1000
+    site_ytd_sns = df_ytd['Kg Sns.'].sum() / luas_site_ytd / 1000
+    site_ytd_var = site_ytd_akt - site_ytd_sns
+    site_ytd_pct = (site_ytd_akt / site_ytd_sns * 100) if site_ytd_sns > 0 else 0
+    
+    df_total_ytd = pd.DataFrame([{
+        'Kebun': 'TOTAL SITE', 'Aktual': site_ytd_akt, 'Sensus': site_ytd_sns, 'Var': site_ytd_var, 'Pct': site_ytd_pct
+    }])
+    
+    df_final_ytd = pd.concat([df_t_ytd, df_total_ytd], ignore_index=True)
+    df_final_ytd.insert(0, 'No', range(1, len(df_final_ytd) + 1))
+    df_final_ytd.columns = ['No', 'Kebun', 'Aktual', 'Sensus', 'Var', 'Capaian (%)']
+    
+    st.dataframe(
+        df_final_ytd.style.format({
+            'Aktual': '{:,.2f}', 'Sensus': '{:,.2f}', 'Var': '{:+,.2f}', 'Capaian (%)': '{:,.1f}%'
+        }).map(style_variance, subset=['Var']),
+        use_container_width=True, hide_index=True
+    )
