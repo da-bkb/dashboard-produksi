@@ -7,7 +7,8 @@ import plotly.graph_objects as go
 df_raw = st.session_state["df_raw"]
 pilihan_bulan = st.session_state["pilihan_bulan"]
 
-st.markdown(f"### 🌱 Yield Performance terhadap Budget (Ton/Ha)")
+# KATA PERFORMANCE / PERFORMA SUDAH DIHAPUS DARI JUDUL UTAMA
+st.markdown(f"### 🌱 Yield terhadap Budget (Ton/Ha)")
 
 # --- 1. PROSES FILTER TIMEFRAME (MTD & YTD) ---
 df_mtd = df_raw[df_raw['Bulan'] == pilihan_bulan].copy()
@@ -79,7 +80,6 @@ with col_g1:
     st.plotly_chart(fig_mtd, use_container_width=True)
 
 with col_g2:
-    # KETERANGAN DISINI SUDAH BERSIH DARI TULISAN YTD
     st.markdown(f"##### 📊 Grafik Yield - s.d Bulan Ini ({pilihan_bulan})")
     fig_ytd = go.Figure()
     
@@ -116,7 +116,8 @@ with col_g2:
 st.markdown("---")
 
 # --- 4. DATA FRAME COMPILATION FOR MTD & YTD TABLE ---
-st.markdown(f"##### 📋 Tabel Summary Yield Performa (MTD vs YTD)")
+# KATA PERFORMA SUDAH DIHAPUS DARI JUDUL TABEL SUMMARY
+st.markdown(f"##### 📋 Tabel Summary Yield (MTD vs YTD)")
 
 df_t_kebun = pd.DataFrame({'Kebun': df_k_mtd['Kebun'].unique()})
 
@@ -149,25 +150,4 @@ df_total = pd.DataFrame([{
 }])
 
 df_final = pd.concat([df_t_kebun, df_total], ignore_index=True)
-df_final.insert(0, 'No', range(1, len(df_final) + 1))
-
-df_final.columns = [
-    'No', 'Kebun', 
-    'Akt (MTD)', 'Bgt (MTD)', 'Var (MTD)', 'Var MTD (%)',
-    'Akt (YTD)', 'Bgt (YTD)', 'Var (YTD)', 'Var YTD (%)'
-]
-
-def style_variance(val):
-    if isinstance(val, (int, float)):
-        color = 'red' if val < 0 else 'green'
-        return f'color: {color}; font-weight: bold;'
-    return ''
-
-st.dataframe(
-    df_final.style.format({
-        'Akt (MTD)': '{:,.2f}', 'Bgt (MTD)': '{:,.2f}', 'Var (MTD)': '{:+,.2f}', 'Var MTD (%)': '{:+,.2f}%',
-        'Akt (YTD)': '{:,.2f}', 'Bgt (YTD)': '{:,.2f}', 'Var (YTD)': '{:+,.2f}', 'Var YTD (%)': '{:+,.2f}%'
-    }).map(style_variance, subset=['Var (MTD)', 'Var MTD (%)', 'Var (YTD)', 'Var YTD (%)']),
-    use_container_width=True,
-    hide_index=True
-)
+df_final.insert(
