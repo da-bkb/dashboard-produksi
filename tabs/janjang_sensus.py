@@ -48,17 +48,17 @@ pokok_kebun_mtd = df_mtd.groupby(['Kebun', 'Afdeling'])['Pokok'].first().reset_i
 pokok_kebun_ytd = df_ytd.groupby(['Kebun', 'Afdeling'])['Pokok'].first().reset_index().groupby('Kebun')['Pokok'].sum()
 
 # MTD Level Kebun
-df_k_mtd = df_mtd.groupby('Kebun').agg({'Jan Akt.': 'sum', 'Jan Sns.': 'sum'}).reset_index()
+df_k_mtd = df_mtd.groupby('Kebun').agg({'Jg Akt.': 'sum', 'Jg Sns.': 'sum'}).reset_index()
 df_k_mtd['Pokok'] = df_k_mtd['Kebun'].map(pokok_kebun_mtd)
-df_k_mtd['Aktual'] = df_k_mtd['Jan Akt.'] / df_k_mtd['Pokok']
-df_k_mtd['Target'] = df_k_mtd['Jan Sns.'] / df_k_mtd['Pokok']
+df_k_mtd['Aktual'] = df_k_mtd['Jg Akt.'] / df_k_mtd['Pokok']
+df_k_mtd['Target'] = df_k_mtd['Jg Sns.'] / df_k_mtd['Pokok']
 df_k_mtd['Pct'] = (df_k_mtd['Aktual'] / df_k_mtd['Target'] * 100).fillna(0)
 
 # YTD Level Kebun
-df_k_ytd = df_ytd.groupby('Kebun').agg({'Jan Akt.': 'sum', 'Jan Sns.': 'sum'}).reset_index()
+df_k_ytd = df_ytd.groupby('Kebun').agg({'Jg Akt.': 'sum', 'Jg Sns.': 'sum'}).reset_index()
 df_k_ytd['Pokok'] = df_k_ytd['Kebun'].map(pokok_kebun_ytd)
-df_k_ytd['Aktual'] = df_k_ytd['Jan Akt.'] / df_k_ytd['Pokok']
-df_k_ytd['Target'] = df_k_ytd['Jan Sns.'] / df_k_ytd['Pokok']
+df_k_ytd['Aktual'] = df_k_ytd['Jg Akt.'] / df_k_ytd['Pokok']
+df_k_ytd['Target'] = df_k_ytd['Jg Sns.'] / df_k_ytd['Pokok']
 df_k_ytd['Pct'] = (df_k_ytd['Aktual'] / df_k_ytd['Target'] * 100).fillna(0)
 
 # --- 3. LAYOUT GRAFIK BERSEBELAHAN (KEBUN) ---
@@ -119,9 +119,9 @@ with col_t1:
     df_t_mtd['Pct'] = (df_t_mtd['Aktual'] / df_t_mtd['Sensus'] * 100) - 100
     
     total_pokok_mtd = pokok_kebun_mtd.sum()
-    site_mtd_akt = df_mtd['Jan Akt.'].sum() / total_pokok_mtd
-    site_mtd_sns = df_mtd['Jan Sns.'].sum() / total_pokok_mtd
-    df_total_mtd = pd.DataFrame([{'Kebun': 'TOTAL SITE', 'Aktual': site_mtd_akt, 'Sensus': site_mtd_sns, 'Var': site_mtd_akt - site_mtd_sns, 'Pct': (site_mtd_akt / site_mtd_sns * 100) - 100}])
+    site_mtd_akt = df_mtd['Jg Akt.'].sum() / total_pokok_mtd
+    site_mtd_sns = df_mtd['Jg Sns.'].sum() / total_pokok_mtd
+    df_total_mtd = pd.DataFrame([{'Kebun': 'TOTAL SITE', 'Aktual': site_mtd_akt, 'Sensus': site_mtd_sns, 'Var': site_mtd_akt - site_sns, 'Pct': (site_mtd_akt / site_sns * 100) - 100}]) if 'site_sns' in locals() else pd.DataFrame([{'Kebun': 'TOTAL SITE', 'Aktual': site_mtd_akt, 'Sensus': site_mtd_sns, 'Var': site_mtd_akt - site_mtd_sns, 'Pct': (site_mtd_akt / site_mtd_sns * 100) - 100}])
     
     df_final_mtd = pd.concat([df_t_mtd, df_total_mtd], ignore_index=True)
     df_final_mtd.insert(0, 'No', range(1, len(df_final_mtd) + 1))
@@ -136,8 +136,8 @@ with col_t2:
     df_t_ytd['Pct'] = (df_t_ytd['Aktual'] / df_t_ytd['Sensus'] * 100) - 100
     
     total_pokok_ytd = pokok_kebun_ytd.sum()
-    site_ytd_akt = df_ytd['Jan Akt.'].sum() / total_pokok_ytd
-    site_ytd_sns = df_ytd['Jan Sns.'].sum() / total_pokok_ytd
+    site_ytd_akt = df_ytd['Jg Akt.'].sum() / total_pokok_ytd
+    site_ytd_sns = df_ytd['Jg Sns.'].sum() / total_pokok_ytd
     df_total_ytd = pd.DataFrame([{'Kebun': 'TOTAL SITE', 'Aktual': site_ytd_akt, 'Sensus': site_ytd_sns, 'Var': site_ytd_akt - site_ytd_sns, 'Pct': (site_ytd_akt / site_ytd_sns * 100) - 100}])
     
     df_final_ytd = pd.concat([df_t_ytd, df_total_ytd], ignore_index=True)
@@ -163,17 +163,17 @@ if not df_m_afd.empty:
     luas_afd_ytd = df_y_afd.groupby('Afdeling')['Pokok'].first()
 
     # MTD Afdeling
-    df_a_mtd = df_m_afd.groupby('Afdeling').agg({'Jan Akt.': 'sum', 'Jan Sns.': 'sum'}).reset_index()
+    df_a_mtd = df_m_afd.groupby('Afdeling').agg({'Jg Akt.': 'sum', 'Jg Sns.': 'sum'}).reset_index()
     df_a_mtd['Pokok'] = df_a_mtd['Afdeling'].map(luas_afd_mtd)
-    df_a_mtd['Aktual'] = df_a_mtd['Jan Akt.'] / df_a_mtd['Pokok']
-    df_a_mtd['Target'] = df_a_mtd['Jan Sns.'] / df_a_mtd['Pokok']
+    df_a_mtd['Aktual'] = df_a_mtd['Jg Akt.'] / df_a_mtd['Pokok']
+    df_a_mtd['Target'] = df_a_mtd['Jg Sns.'] / df_a_mtd['Pokok']
     df_a_mtd['Pct'] = (df_a_mtd['Aktual'] / df_a_mtd['Target'] * 100).fillna(0)
 
     # YTD Afdeling
-    df_a_ytd = df_y_afd.groupby('Afdeling').agg({'Jan Akt.': 'sum', 'Jan Sns.': 'sum'}).reset_index()
+    df_a_ytd = df_y_afd.groupby('Afdeling').agg({'Jg Akt.': 'sum', 'Jg Sns.': 'sum'}).reset_index()
     df_a_ytd['Pokok'] = df_a_ytd['Afdeling'].map(luas_afd_ytd)
-    df_a_ytd['Aktual'] = df_a_ytd['Jan Akt.'] / df_a_ytd['Pokok']
-    df_a_ytd['Target'] = df_a_ytd['Jan Sns.'] / df_a_ytd['Pokok']
+    df_a_ytd['Aktual'] = df_a_ytd['Jg Akt.'] / df_a_ytd['Pokok']
+    df_a_ytd['Target'] = df_a_ytd['Jg Sns.'] / df_a_ytd['Pokok']
     df_a_ytd['Pct'] = (df_a_ytd['Aktual'] / df_a_ytd['Target'] * 100).fillna(0)
 
     # LAYOUT GRAFIK AFDELING
