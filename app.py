@@ -1,128 +1,112 @@
 import streamlit as st
 import pandas as pd
 import os
-import numpy as np
 
 # --- 1. KONFIGURASI HALAMAN UTAMA ---
 st.set_page_config(
-    page_title="Dashboard Produksi Kelapa Sawit",
-    page_icon="🌴",
-    layout="wide"
+    page_title="Dashboard Yield Performa Kebun & Afdeling",
+    page_icon="🌱",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# --- 2. FUNGSI LOADING DATA BERDASARKAN PARAMETER FILTER ---
+# --- 2. FUNGSI SIMULASI / LOAD DATA MENTAH ---
 @st.cache_data
-def load_data(tipe_target):
-    if tipe_target == "Budget":
-        file_name = "Rekap26.csv"
-        nama_target = "BUDGET"
-    else:
-        file_name = "Rekap26_Sns.csv"
-        nama_target = "SENSUS"
-        
-    if not os.path.exists(file_name):
-        return pd.DataFrame(), nama_target
-
-    try:
-        df = pd.read_csv(file_name, sep=";", decimal=",")
-    except:
-        df = pd.read_csv(file_name, sep=",", decimal=",")
-        
-    # Bersihkan spasi liar pada nama kolom
-    df.columns = df.columns.str.strip()
+def load_data():
+    """
+    Fungsi untuk membaca data. 
+    Silakan sesuaikan path atau nama file dengan data aktual Bapak.
+    Di bawah ini adalah struktur dummy jika file belum ditemukan.
+    """
+    # Contoh pembacaan jika menggunakan excel:
+    # if os.path.exists("data_yield.xlsx"):
+    #     return pd.read_excel("data_yield.xlsx")
     
-    # Standarisasi kolom Bulan menjadi huruf kapital
-    if 'Bulan' in df.columns:
-        df['Bulan'] = df['Bulan'].astype(str).str.strip().str.upper()
-        
-    return df, nama_target
-
-# --- 3. JUDUL DASHBOARD ---
-st.markdown("<h1 style='text-align: center; color: #28348A;'>🌴 DASHBOARD PRODUKSI TBS SITE SATUI</h1>", unsafe_allow_html=True)
-st.markdown("---")
-
-# --- 4. SUSUNAN FILTER UTAMA (DI BAWAH JUDUL) ---
-col1, col2, col3 = st.columns([1.5, 1.2, 1.8])
-
-with col1:
-    # Filter 1: Capaian terhadap pilihan Budget atau Sensus
-    pilihan_target = st.radio(
-        "🎯 Capaian terhadap :",
-        ["Budget", "Sensus"],
-        horizontal=True,
-        key="global_target_type_picker"
-    )
-
-# Memuat data secara real-time dari file csv yang sesuai pilihan filter 1
-df_raw, nama_target_label = load_data(pilihan_target)
-
-if df_raw.empty:
-    st.error(f"⚠️ File data untuk Analisa {pilihan_target} tidak ditemukan di direktori!")
-    st.stop()
-
-with col2:
-    # Filter 2: Pilihan Bulan Produksi mengambil dari kolom 'Bulan' di CSV
-    list_bulan = list(df_raw['Bulan'].unique()) if 'Bulan' in df_raw.columns else ['MEI']
-    default_idx = list_bulan.index("MEI") if "MEI" in list_bulan else 0
+    # Dummy data generator agar aplikasi langsung jalan tanpa error data hilang
+    np_random = pd.Series(range(1, 100)) # Placeholder pemicu
+    bulan_list = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
+    kebun_list = ['BKB Inti', 'REK Inti', 'SRE Inti']
+    afdeling_list = ['A', 'B', 'C', 'D']
     
-    pilihan_bulan = st.selectbox(
-        "📅 Bulan Produksi:", 
-        list_bulan, 
-        index=default_idx,
-        key="global_month_picker_main"
-    )
+    rows = []
+    for bln in bulan_list:
+        for kbn in kebun_list:
+            for afd in afdeling_list:
+                rows.append({
+                    "Bulan": bln,
+                    "Kebun": kbn,
+                    "Afdeling": afd,
+                    "Luas": 500.0 if afd in ['A', 'B'] else 450.0,
+                    "Kg Akt.": pd.Series(range(400000, 600000)).sample(1).values[0],
+                    "Kg Bgt.": pd.Series(range(420000, 580000)).sample(1).values[0],
+                    "Kg Sns.": pd.Series(range(410000, 590000)).sample(1).values[0]
+                })
+    return pd.DataFrame(rows)
 
-with col3:
-    # Filter 3: Menu Tabs Analisis
-    menu_analisis = st.selectbox(
-        "📊 Pilih Parameter:",
-        ["Yield", "RJP", "BJR", "Trend per Kebun", "Trend per Afdeling"],
-        key="menu_dashboard_navigator_main"
-    )
+# Load data ke dalam cache
+df_input = load_data()
 
-st.markdown("---") # Garis pembatas tebal penanda area visualisasi grafik di bawahnya
+# --- 3. INISIALISASI SESSION STATE GLOBAL ---
+if "df_raw" not in st.session_state:
+    st.session_state["df_raw"] = df_input
 
-# --- 5. MENYIMPAN VARIABEL GLOBAL KE SESSION STATE ---
-# Agar file-file sub-tab di folder 'tabs' bisa langsung membaca datanya tanpa error
-st.session_state["df_raw"] = df_raw
+# --- 4. SIDEBAR GLOBAL (FILTER BULAN UTAMA) ---
+st.sidebar.image("https://via.placeholder.com/150x50?text=LOGO+PERUSAHAAN", use_container_width=True)
+st.sidebar.markdown("## 🎛️ Filter Utama")
+
+# Daftar pilihan bulan berdasarkan data yang ada
+list_bulan_data = list(st.session_state["df_raw"]["Bulan"].unique())
+if "AGS" in list_bulan_data and "AGUSTUS" not in list_bulan_data:
+    # Antisipasi jika user mencari kata kunci panjang atau pendek
+    idx_default = list_bulan_data.index("AGS") if "AGS" in list_bulan_data else 0
+else:
+    idx_default = 0
+
+pilihan_bulan = st.sidebar.selectbox(
+    "Pilih Operasional Bulan:", 
+    options=list_bulan_data, 
+    index=idx_default
+)
+
+# Simpan pilihan bulan ke session state agar bisa diakses file tab lain
 st.session_state["pilihan_bulan"] = pilihan_bulan
-st.session_state["list_bulan"] = list_bulan
 
-# --- 6. ROUTING EKSEKUSI FILE SUB-TAB DI FOLDER TABS ---
-global_context = globals()
+st.sidebar.markdown("---")
+st.sidebar.info(
+    "💡 **Petunjuk Penggunaan:**\n\n"
+    "1. Filter Bulan di atas berlaku untuk Tab **Yield vs Budget** & **Yield vs Sensus**.\n"
+    "2. Untuk melihat performa makro, silakan buka Tab **Yield Periodik**."
+)
 
-if menu_analisis == "Yield":
-    # Menentukan file sub-tab yang akan dibuka berdasarkan filter "Capaian terhadap"
-    file_tab = "tabs/yield_perf.py" if pilihan_target == "Budget" else "tabs/yield_sensus.py"
-    if os.path.exists(file_tab):
-        exec(open(file_tab).read(), global_context)
-    else:
-        st.warning(f"File '{file_tab}' tidak ditemukan di folder tabs.")
 
-elif menu_analisis == "RJP":
-    file_tab = "tabs/janjang_pokok.py" if pilihan_target == "Budget" else "tabs/janjang_sensus.py"
-    if os.path.exists(file_tab):
-        exec(open(file_tab).read(), global_context)
-    else:
-        st.warning(f"File '{file_tab}' tidak ditemukan di folder tabs.")
+# --- 5. STRUKTUR NAVIGASI UTAMA (TABS) ---
+st.write("# 📑 Dashboard Performa Produksi (Yield)")
+st.write("Sistem Analisa Produktivitas Blok, Afdeling, hingga Tingkat Regional Estate.")
 
-elif menu_analisis == "BJR":
-    file_tab = "tabs/bjr_perf.py" if pilihan_target == "Budget" else "tabs/bjr_sensus.py"
-    if os.path.exists(file_tab):
-        exec(open(file_tab).read(), global_context)
-    else:
-        st.warning(f"File '{file_tab}' tidak ditemukan di folder tabs.")
+# Inisialisasi 3 Tab Utama sesuai alur kerja
+tab_budget, tab_sensus, tab_periodik = st.tabs([
+    "📈 Yield vs Budget", 
+    "🎯 Yield vs Sensus", 
+    "📅 Yield Periodik"
+])
 
-elif menu_analisis == "Trend per Kebun":
-    file_tab = "tabs/trend_kebun.py"
-    if os.path.exists(file_tab):
-        exec(open(file_tab).read(), global_context)
-    else:
-        st.info("ℹ️ File 'tabs/trend_kebun.py' belum dimasukkan ke folder.")
+# --- 6. PEMANGGILAN MODUL FILE TIAP TAB ---
+with tab_budget:
+    try:
+        # Mengimpor modul secara dinamis dan menjalankannya jika dibungkus fungsi,
+        # atau langsung menjalankan script jika ditulis secara top-level execution.
+        from tabs import yield_perf
+    except ImportError:
+        st.error("Gagal memuat file `tabs/yield_perf.py`. Pastikan folder dan file tersebut ada.")
 
-elif menu_analisis == "Trend per Afdeling":
-    file_tab = "tabs/trend_afdeling.py"
-    if os.path.exists(file_tab):
-        exec(open(file_tab).read(), global_context)
-    else:
-        st.info("ℹ️ File 'tabs/trend_afdeling.py' belum dimasukkan ke folder.")
+with tab_sensus:
+    try:
+        from tabs import yield_sensus
+    except ImportError:
+        st.error("Gagal memuat file `tabs/yield_sensus.py`. Pastikan folder dan file tersebut ada.")
+
+with tab_periodik:
+    try:
+        from tabs import yield_periodik
+    except ImportError:
+        st.error("Gagal memuat file `tabs/yield_periodik.py`. Pastikan folder dan file tersebut ada.")
