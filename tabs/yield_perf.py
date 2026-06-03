@@ -50,27 +50,25 @@ with col_g1:
     
     # Batang Aktual
     fig_mtd.add_trace(go.Bar(
-        x=df_k_mtd["Kebun"], y=df_k_mtd["Aktual"], name="Aktual MTD", marker_color="#28348A", width=0.35,
+        x=df_k_mtd["Kebun"], y=df_k_mtd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35,
         text=[f"{p:,.1f}%" for p in df_k_mtd["Pct"]], textposition="inside", insidetextanchor="start",
         textfont=dict(color="white", size=12, family="Arial Black")
     ))
     # Garis Target penanda di Legend
-    fig_mtd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Budget MTD'))
+    fig_mtd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
     
     # Render Target Line & Kondisi Panah Merah MTD
     for idx, row in df_k_mtd.iterrows():
         fig_mtd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
         
-        # Aturan Panah Merah
+        # Aturan Panah Merah Budget
         if row["Pct"] < 90:
-            # Di bawah 90%: Panah mengarah ke ATAS (Ujung di Target, Pangkal di Aktual)
             fig_mtd.add_annotation(
                 x=idx, y=row["Target"], ax=idx, ay=row["Aktual"],
                 xref="x", yref="y", axref="x", ayref="y",
                 showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000'
             )
         elif row["Pct"] > 110:
-            # Di atas 110%: Panah mengarah ke BAWAH (Ujung di Target, Pangkal di Aktual)
             fig_mtd.add_annotation(
                 x=idx, y=row["Target"], ax=idx, ay=row["Aktual"],
                 xref="x", yref="y", axref="x", ayref="y",
@@ -81,32 +79,31 @@ with col_g1:
     st.plotly_chart(fig_mtd, use_container_width=True)
 
 with col_g2:
-    st.markdown(f"##### 📊 Grafik Yield - s.d Bulan Ini (YTD {pilihan_bulan})")
+    # KETERANGAN DISINI SUDAH BERSIH DARI TULISAN YTD
+    st.markdown(f"##### 📊 Grafik Yield - s.d Bulan Ini ({pilihan_bulan})")
     fig_ytd = go.Figure()
     
     # Batang Aktual YTD
     fig_ytd.add_trace(go.Bar(
-        x=df_k_ytd["Kebun"], y=df_k_ytd["Aktual"], name="Aktual YTD", marker_color="#28348A", width=0.35,
+        x=df_k_ytd["Kebun"], y=df_k_ytd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35,
         text=[f"{p:,.1f}%" for p in df_k_ytd["Pct"]], textposition="inside", insidetextanchor="start",
         textfont=dict(color="white", size=12, family="Arial Black")
     ))
     # Garis Target penanda di Legend
-    fig_ytd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Budget YTD'))
+    fig_ytd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
     
     # Render Target Line & Kondisi Panah Merah YTD
     for idx, row in df_k_ytd.iterrows():
         fig_ytd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
         
-        # Aturan Panah Merah
+        # Aturan Panah Merah Budget
         if row["Pct"] < 90:
-            # Di bawah 90%: Panah mengarah ke ATAS (Ujung di Target, Pangkal di Aktual)
             fig_ytd.add_annotation(
                 x=idx, y=row["Target"], ax=idx, ay=row["Aktual"],
                 xref="x", yref="y", axref="x", ayref="y",
                 showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000'
             )
         elif row["Pct"] > 110:
-            # Di atas 110%: Panah mengarah ke BAWAH (Ujung di Target, Pangkal di Aktual)
             fig_ytd.add_annotation(
                 x=idx, y=row["Target"], ax=idx, ay=row["Aktual"],
                 xref="x", yref="y", axref="x", ayref="y",
