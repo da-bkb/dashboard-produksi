@@ -2,150 +2,174 @@ import streamlit as st
 import pandas as pd
 import os
 import numpy as np
+from datetime import datetime
 
-# --- 1. KONFIGURASI HALAMAN UTAMA DASHBOARD ---
+# --- KONFIGURASI HALAMAN UTAMA ---
 st.set_page_config(
     page_title="Dashboard Produksi Kelapa Sawit",
     page_icon="🌴",
     layout="wide"
 )
 
-# --- 2. FUNGSI LOAD DATA BERDASARKAN PILIHAN ANALISA ---
-@st.cache_data
-def load_data_source(tipe_analisa):
-    if tipe_analisa == "Analisa terhadap Budget":
-        file_name = "Rekap26.csv"
-        target_name = "BUDGET"
-    else:
-        file_name = "Rekap26_Sns.csv"
-        target_name = "SENSUS"
-        
-    if not os.path.exists(file_name):
-        return pd.DataFrame(), target_name
+# =========================================================================
+# 🔒 SISTEM LOGIN KEAMANAN DASHBOARD (FINAL)
+# =========================================================================
+def cek_login():
+    """Fungsi untuk memeriksa status login pengguna"""
+    if "authenticated" not in st.session_state:
+        st.session_state["authenticated"] = False
 
-    try:
-        df = pd.read_csv(file_name, sep=";", decimal=",")
-    except:
-        df = pd.read_csv(file_name, sep=",", decimal=",")
-        
-    # Bersihkan spasi pada nama kolom
-    df.columns = df.columns.str.strip()
-    
-    # Standarisasi kolom Bulan menjadi huruf kapital
-    if 'Bulan' in df.columns:
-        df['Bulan'] = df['Bulan'].astype(str).str.strip().str.upper()
-        
-    # Memastikan kolom teks bersih dari spasi liar
-    for col in ['Kebun', 'Afdeling']:
-        if col in df.columns:
-            df[col] = df[col].astype(str).str.strip()
+    if not st.session_state["authenticated"]:
+        # Tampilan Form Login dengan susunan kolom rapi
+        kolom = st.columns([1, 2, 1])
+        with kolom[1]:
+            st.markdown("<h2 style='text-align: center;'>🔒 Ruang Log Masuk Sistem</h2>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: gray;'>Silakan masukkan kredensial untuk mengakses data produksi Satui</p>", unsafe_allow_html=True)
             
-    return df, target_name
+            username = st.text_input("Username:")
+            password = st.text_input("Password:", type="password")
+            tombol_login = st.button("Masuk", use_container_width=True)
+            
+            if tombol_login:
+                if username == "AGRO" and password == "Satui26.":
+                    st.session_state["authenticated"] = True
+                    st.success("🔑 Akses diterima! Memuat data...")
+                    st.rerun()
+                else:
+                    st.error("⚠️ Username atau Password salah. Silakan coba lagi.")
+        return False
+    return True
 
-# --- 3. TAMPILAN HEADER DASHBOARD ---
-st.markdown("<h1 style='text-align: center; color: #28348A;'>🌴 DASHBOARD ANALISA PRODUKSI KELAPA SAWIT</h1>", unsafe_allow_html=True)
-st.markdown("---")
+# Jalankan proteksi login sebelum mengeksekusi dashboard utama
+if cek_login():
 
-# --- 4. AREA FILTER UTAMA (DI BAWAH JUDUL) ---
-col1, col2 = st.columns(2)
+    # --- PROSES LOADING DATA BERSIH (MAPPING OTOMATIS) ---
+    @st.cache_data
+    def load_data(tipe_target):
+        if tipe_target == "Capaian terhadap BUDGET":
+            file_name = "Rekap26.csv"
+            nama_target = "BUDGET"
+        else:
+            file_name = "Rekap26_Sns.csv"
+            nama_target = "SENSUS"
+            
+        if not os.path.exists(file_name):
+            return pd.DataFrame(), nama_target
 
-with col1:
-    # Filter 1: 2 Pilihan Analisa Utama sesuai instruksi
-    pilihan_analisa = st.radio(
-        "🎯 Pilih Tipe Analisa Utama:",
-        ["Analisa terhadap Budget", "Analisa terhadap Sensus"],
-        horizontal=True,
-        key="global_tipe_analisa_main"
-    )
-
-# Memuat database secara real-time berdasarkan radio button di atas
-df_raw, nama_target_aktif = load_data_source(pilihan_analisa)
-
-if df_raw.empty:
-    st.error(f"⚠️ File data untuk '{pilihan_analisa}' tidak ditemukan di root folder. Pastikan file csv tersedia!")
-    st.stop()
-
-with col2:
-    # Filter 2: Pilihan Bulan dinamis mengambil dari kolom data csv
-    list_bulan_raw = list(df_raw['Bulan'].unique()) if 'Bulan' in df_raw.columns else ['MEI']
-    
-    # Ambil index default ke MEI jika tersedia agar tampilan awal langsung ke bulan Mei
-    default_idx = list_bulan_raw.index("MEI") if "MEI" in list_bulan_raw else 0
-    
-    pilihan_bulan = st.selectbox(
-        "📅 Pilih Bulan Analisis:",
-        list_bulan_raw,
-        index=default_idx,
-        key="global_month_picker_main"
-    )
-
-# Simpan variabel ke session state agar file di folder tabs bisa membaca parameter global secara adil
-st.session_state["df_raw"] = df_raw
-st.session_state["pilihan_bulan"] = pilihan_bulan
-st.session_state["list_bulan"] = list_bulan_raw
-st.session_state["tipe_target"] = pilihan_analisa
-st.session_state["nama_target_label"] = nama_target_aktif
-
-st.markdown("---")
-
-# --- 5. NAVIGASI TABS ANALISA (URUTAN SESUAI PERMINTAAN) ---
-# Urutan: Yield -> RJP -> BJR -> Trend per Kebun -> Trend per Afdeling
-menu_analisis = st.selectbox(
-    "📊 Pilih Menu Analisis:",
-    ["Yield", "RJP", "BJR", "Trend per Kebun", "Trend per Afdeling"],
-    key="menu_dashboard_navigator_main"
-)
-
-st.markdown("---") # Pembatas area visualisasi grafik
-
-# Mengambil konteks memori global agar sub-file mengenali variabel utama app.py
-global_context = globals()
-
-# --- 6. ENGINE ROUTING ROUTER SUB-FILE TABS ---
-if menu_analisis == "Yield":
-    # Jika memilih analisa budget, panggil yield_perf.py. Jika sensus, panggil yield_sensus.py
-    if pilihan_analisa == "Analisa terhadap Budget":
-        file_target_tab = "tabs/yield_perf.py"
-    else:
-        file_target_tab = "tabs/yield_sensus.py"
+        try:
+            df = pd.read_csv(file_name, sep=";", decimal=",")
+        except:
+            df = pd.read_csv(file_name, sep=",", decimal=",")
+            
+        df.columns = df.columns.str.strip()
         
-    if os.path.exists(file_target_tab):
-        exec(open(file_target_tab).read(), global_context)
-    else:
-        st.warning(f"Sub-file '{file_target_tab}' tidak ditemukan di folder tabs.")
-
-elif menu_analisis == "RJP":
-    if pilihan_analisa == "Analisa terhadap Budget":
-        file_target_tab = "tabs/janjang_pokok.py"
-    else:
-        file_target_tab = "tabs/janjang_sensus.py"
+        if 'Bulan' in df.columns:
+            df['Bulan'] = df['Bulan'].astype(str).str.strip().str.upper()
+            
+        kolom_angka = [
+            'Luas', 'Pokok', 'Jjg Akt.', 'Kg Akt.', 'BJR Akt.', 'Ton/ha Akt.', '% Cap.', 'Gap Ton/Ha', 'Gap %',
+            'Jjg Bgt.', 'Kg Bgt.', 'BJR Bgt.', 'Ton/ha Bgt.',
+            'Jjg Sns.', 'Kg Sns.', 'BJR Sns.', 'Ton/ha Sns.'
+        ]
         
-    if os.path.exists(file_target_tab):
-        exec(open(file_target_tab).read(), global_context)
-    else:
-        st.warning(f"Sub-file '{file_target_tab}' tidak ditemukan di folder tabs.")
+        for col in kolom_angka:
+            if col in df.columns:
+                if df[col].dtype == 'object':
+                    df[col] = df[col].astype(str).str.replace(' ', '', regex=False)
+                    df[col] = df[col].str.replace(',', '.', regex=False)
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+                
+        # Sinkronisasi alias kolom Sensus agar grafik & tabel YTD tetap normal
+        if nama_target == "SENSUS":
+            if 'Jjg Sns.' in df.columns: df['Jjg Bgt.'] = df['Jjg Sns.']
+            if 'Kg Sns.' in df.columns:  df['Kg Bgt.'] = df['Kg Sns.']
+            if 'BJR Sns.' in df.columns: df['BJR Bgt.'] = df['BJR Sns.']
+            if 'Ton/ha Sns.' in df.columns: df['Ton/ha Bgt.'] = df['Ton/ha Sns.']
+                
+        return df, nama_target
 
-elif menu_analisis == "BJR":
-    if pilihan_analisa == "Analisa terhadap Budget":
-        file_target_tab = "tabs/bjr_perf.py"
+
+    # =========================================================================
+    # 🌴 AREA UTAMA DASHBOARD
+    # =========================================================================
+
+    # Sidebar Keluar Sesi
+    st.sidebar.markdown("### 🔑 Sesi Aktif")
+    if st.sidebar.button("Keluar / Log Out"):
+        st.session_state["authenticated"] = False
+        st.rerun()
+
+    st.title("🌴 Dashboard Performa Produksi Satui")
+    st.markdown("Silakan atur basis analisis, periode bulan, dan menu grafik pada panel di bawah ini:")
+    st.markdown("---")
+
+    col1, col2, col3 = st.columns([1, 1, 1])
+
+    with col1:
+        basis_analisa = st.selectbox(
+            "🎯 1. Basis Target Analisis:",
+            ["Capaian terhadap BUDGET", "Capaian terhadap SENSUS"],
+            key="main_basis_analisa"
+        )
+
+    df_raw, nama_target = load_data(basis_analisa)
+
+    if df_raw.empty:
+        st.error(f"⚠️ Gagal memuat data. File database '{basis_analisa}' tidak ditemukan.")
     else:
-        file_target_tab = "tabs/bjr_sensus.py"
+        df_raw = df_raw.replace([np.inf, -np.inf], np.nan)
+
+        list_bulan_raw = df_raw["Bulan"].unique().tolist()
+        URUTAN_BULAN_STD = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGT', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
+        list_bulan = [b for b in URUTAN_BULAN_STD if b in list_bulan_raw]
+        for b in list_bulan_raw:
+            if b not in list_bulan:
+                list_bulan.append(b)
+
+        # Logika Otomatis Menampilkan Data Bulan Lalu (-1 Bulan Berjalan)
+        MAP_ANGKA_BULAN = {1: 'JAN', 2: 'FEB', 3: 'MAR', 4: 'APR', 5: 'MEI', 6: 'JUN', 7: 'JUL', 8: 'AGT', 9: 'SEP', 10: 'OKT', 11: 'NOV', 12: 'DES'}
+        bulan_sekarang_angka = datetime.now().month
         
-    if os.path.exists(file_target_tab):
-        exec(open(file_target_tab).read(), global_context)
-    else:
-        st.warning(f"Sub-file '{file_target_tab}' tidak ditemukan di folder tabs.")
+        bulan_lalu_angka = 12 if bulan_sekarang_angka == 1 else bulan_sekarang_angka - 1
+        nama_bulan_lalu = MAP_ANGKA_BULAN.get(bulan_lalu_angka, 'JAN')
 
-elif menu_analisis == "Trend per Kebun":
-    file_target_tab = "tabs/trend_kebun.py"
-    if os.path.exists(file_target_tab):
-        exec(open(file_target_tab).read(), global_context)
-    else:
-        st.info("ℹ️ Sub-file 'tabs/trend_kebun.py' belum tersedia. Silakan letakkan file analisis trend kebun Anda di folder tersebut.")
+        if nama_bulan_lalu in list_bulan:
+            default_index_bulan = list_bulan.index(nama_bulan_lalu)
+        else:
+            default_index_bulan = 0 
 
-elif menu_analisis == "Trend per Afdeling":
-    file_target_tab = "tabs/trend_afdeling.py"
-    if os.path.exists(file_target_tab):
-        exec(open(file_target_tab).read(), global_context)
-    else:
-        st.info("ℹ️ Sub-file 'tabs/trend_afdeling.py' belum tersedia. Silakan letakkan file analisis trend afdeling Anda di folder tersebut.")
+        with col2:
+            pilihan_bulan = st.selectbox(
+                "📅 2. Bulan Analisis:", 
+                list_bulan, 
+                index=default_index_bulan,
+                key="global_month_picker_main"
+            )
+
+        st.session_state["df_raw"] = df_raw
+        st.session_state["pilihan_bulan"] = pilihan_bulan
+        st.session_state["list_bulan"] = list_bulan
+
+        with col3:
+            # Urutan menu yang sudah fix sesuai instruksi Bapak
+            menu_analisis = st.selectbox(
+                "📊 3. Pilih Menu Analisis:",
+                ["Yield", "RJP", "BJR", "Trend Kebun", "Trend Afdeling"],
+                key="menu_dashboard_navigator_main"
+            )
+        
+        st.markdown("---") 
+
+        global_context = globals()
+
+        # Eksekusi tab sesuai pilihan menu
+        if menu_analisis == "Yield":
+            exec(open("tabs/yield_perf.py").read(), global_context)
+        elif menu_analisis == "RJP":
+            exec(open("tabs/janjang_pokok.py").read(), global_context)
+        elif menu_analisis == "BJR":
+            exec(open("tabs/bjr_perf.py").read(), global_context)
+        elif menu_analisis == "Trend Afdeling":
+            exec(open("tabs/trend_afd.py").read(), global_context)
+        elif menu_analisis == "Trend Kebun":
+            exec(open("tabs/trend_bln.py").read(), global_context)
