@@ -1,64 +1,27 @@
-import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
+# --- PROSES DATA AKUMULASI (YEAR TO DATE - YTD) ---
+URUTAN_BULAN_STANDAR = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
 
-df_raw = st.session_state["df_raw"]
-pilihan_bulan = st.session_state["pilihan_bulan"]
-list_bulan = st.session_state["list_bulan"]
+pilihan_bulan_std = "AGS" if pilihan_bulan in ["AGUSTUS", "AGS"] else pilihan_bulan
 
-def format_capaian(val):
-    try:
-        num = float(val)
-        if 95.0 <= num <= 105.0:
-            return f"{num:.1f}%"
-        elif num < 95.0:
-            return f"🔻 {num:.1f}%"
-        else:
-            return f"🔺 {num:.1f}%"
-    except:
-        return str(val)
+if pilihan_bulan_std in URUTAN_BULAN_STANDAR:
+    idx_bulan = URUTAN_BULAN_STANDAR.index(pilihan_bulan_std)
+    bulan_ytd = URUTAN_BULAN_STANDAR[:idx_bulan + 1]
+else:
+    list_bulan_raw = list(df_raw['Bulan'].unique())
+    if pilihan_bulan_std in list_bulan_raw:
+        idx_bulan = list_bulan_raw.index(pilihan_bulan_std)
+        bulan_ytd = list_bulan_raw[:idx_bulan + 1]
+    else:
+        bulan_ytd = [pilihan_bulan_std]
 
-st.subheader("📊 Analisis Rasio Janjang Per Pokok / RJP")
+df_ytd = df_raw[df_raw['Bulan'].isin(bulan_ytd)].copy()
 
-# Bulanan
-df_bln = df_raw[df_raw["Bulan"] == pilihan_bulan].copy()
-df_kebun_bln = df_bln.groupby("Kebun", as_index=False).agg({
-    "Pokok": "sum", 
-    "Jjg Akt.": "sum", 
-    "Jjg Bgt.": "sum"
-})
-df_kebun_bln["JP_Akt"] = df_kebun_bln["Jjg Akt."] / df_kebun_bln["Pokok"]
-df_kebun_bln["JP_Bgt"] = df_kebun_bln["Jjg Bgt."] / df_kebun_bln["Pokok"]
+df_afd_ytd_grp = df_ytd.groupby('Afdeling').agg({
+    COL_JAN_AKT: 'sum',
+    COL_JAN_BGT: 'sum',
+    'Pokok': 'first'
+}).reset_index()
 
-# YTD
-idx_bulan = list_bulan.index(pilihan_bulan)
-df_ytd = df_raw[df_raw["Bulan"].isin(list_bulan[:idx_bulan + 1])].copy()
-df_kebun_ytd = df_ytd.groupby("Kebun", as_index=False).agg({
-    "Pokok": "sum", 
-    "Jjg Akt.": "sum"
-})
-df_kebun_ytd["JP_Akt_YTD"] = df_kebun_ytd["Jjg Akt."] / df_kebun_ytd["Pokok"]
-
-# --- GRAFIK GABUNGAN ASLI ---
-fig = go.Figure()
-fig.add_trace(go.Bar(x=df_kebun_bln["Kebun"], y=df_kebun_bln["JP_Akt"], name="RJP Aktual Bulanan"))
-fig.add_trace(go.Bar(x=df_kebun_ytd["Kebun"], y=df_kebun_ytd["JP_Akt_YTD"], name="YTD RJP Aktual"))
-fig.add_trace(go.Scatter(x=df_kebun_bln["Kebun"], y=df_kebun_bln["JP_Bgt"], mode="lines+markers", name="Target Budget"))
-
-fig.update_layout(
-    title=f"RJP Performa Kebun - Periode {pilihan_bulan}", 
-    xaxis_title="Kebun", 
-    yaxis_title="Janjang / Pokok", 
-    barmode="group", 
-    template="plotly_white"
-)
-st.plotly_chart(fig, use_container_width=True)
-
-# --- TABEL DATA ASLI ---
-df_kebun_bln["% Cap. JP"] = 0.0
-mask = df_kebun_bln["JP_Bgt"] > 0
-df_kebun_bln.loc[mask, "% Cap. JP"] = (df_kebun_bln.loc[mask, "JP_Akt"] / df_kebun_bln.loc[mask, "JP_Bgt"]) * 100
-
-df_display = df_kebun_bln[["Kebun", "Pokok", "Jjg Akt.", "Jjg Bgt.", "JP_Akt", "JP_Bgt", "% Cap. JP"]].copy()
-df_display["% Cap. JP"] = df_display["% Cap. JP"].apply(format_capaian)
-st.dataframe(df_display, use_container_width=True)
+df_afd_ytd_grp['JP_Akt'] = df_afd_ytd_grp[COL_JAN_AKT] / df_afd_ytd_grp['Pokok']
+df_afd_ytd_grp['JP_Bgt'] = df_afd_ytd_grp[COL_JAN_BGT] / df_afd_ytd_grp['Pokok']
+df_afd_ytd_grp['JP_Pct'] = (df_afd_ytd_grp['JP_Akt'] / df_afd_ytd_grp['JP_Bgt'] * 100).fillna(0)
