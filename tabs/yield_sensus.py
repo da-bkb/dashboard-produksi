@@ -7,7 +7,8 @@ import plotly.graph_objects as go
 df_raw = st.session_state["df_raw"]
 pilihan_bulan = st.session_state["pilihan_bulan"]
 
-st.markdown(f"### 🎯 Yield Performance terhadap Sensus (Ton/Ha)")
+# Format kalimat judul bersih tanpa kata Performance / Performa
+st.markdown(f"### 🎯 Yield terhadap Sensus (Ton/Ha)")
 
 # --- 1. PROSES FILTER TIMEFRAME (MTD & YTD) ---
 df_mtd = df_raw[df_raw['Bulan'] == pilihan_bulan].copy()
@@ -47,43 +48,65 @@ col_g1, col_g2 = st.columns(2)
 with col_g1:
     st.markdown(f"##### 📊 Grafik Yield - Bulan Ini ({pilihan_bulan})")
     fig_mtd = go.Figure()
-    # FIX: Mengubah insidetextanchor menjadi 'start' agar label aman di dasar batang
+    
+    # Batang Aktual (Nama Legend Bersih)
     fig_mtd.add_trace(go.Bar(
-        x=df_k_mtd["Kebun"], y=df_k_mtd["Aktual"], name="Aktual MTD", marker_color="#28348A", width=0.35,
+        x=df_k_mtd["Kebun"], y=df_k_mtd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35,
         text=[f"{p:,.1f}%" for p in df_k_mtd["Pct"]], textposition="inside", insidetextanchor="start",
         textfont=dict(color="white", size=12, family="Arial Black")
     ))
-    fig_mtd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Sensus MTD'))
+    # Garis Target penanda di Legend
+    fig_mtd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Sensus'))
     
+    # Render Target Line & Kondisi Panah Merah MTD Sensus
     for idx, row in df_k_mtd.iterrows():
         fig_mtd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-        if row["Aktual"] < row["Target"]:
-            fig_mtd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
+        
+        # LOGIKA BARU: Panah merah muncul jika di bawah 95% atau di atas 105%
+        if row["Pct"] < 95 or row["Pct"] > 105:
+            fig_mtd.add_annotation(
+                x=idx, y=row["Target"], ax=idx, ay=row["Aktual"],
+                xref="x", yref="y", axref="x", ayref="y",
+                showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000'
+            )
+            
     fig_mtd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
     st.plotly_chart(fig_mtd, use_container_width=True)
 
 with col_g2:
-    st.markdown(f"##### 📊 Grafik Yield - s.d Bulan Ini (YTD {pilihan_bulan})")
+    # Kalimat judul bersih dari YTD
+    st.markdown(f"##### 📊 Grafik Yield - s.d Bulan Ini ({pilihan_bulan})")
     fig_ytd = go.Figure()
-    # FIX: Mengubah insidetextanchor menjadi 'start' agar label aman di dasar batang
+    
+    # Batang Aktual YTD (Nama Legend Bersih)
     fig_ytd.add_trace(go.Bar(
-        x=df_k_ytd["Kebun"], y=df_k_ytd["Aktual"], name="Aktual YTD", marker_color="#28348A", width=0.35,
+        x=df_k_ytd["Kebun"], y=df_k_ytd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35,
         text=[f"{p:,.1f}%" for p in df_k_ytd["Pct"]], textposition="inside", insidetextanchor="start",
         textfont=dict(color="white", size=12, family="Arial Black")
     ))
-    fig_ytd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Sensus YTD'))
+    # Garis Target penanda di Legend
+    fig_ytd.add_trace(go.Scatter(x=[None], y=[None], mode='lines', line=dict(color='#00B050', width=4), name='Sensus'))
     
+    # Render Target Line & Kondisi Panah Merah YTD Sensus
     for idx, row in df_k_ytd.iterrows():
         fig_ytd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-        if row["Aktual"] < row["Target"]:
-            fig_ytd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
+        
+        # LOGIKA BARU: Panah merah muncul jika di bawah 95% atau di atas 105%
+        if row["Pct"] < 95 or row["Pct"] > 105:
+            fig_ytd.add_annotation(
+                x=idx, y=row["Target"], ax=idx, ay=row["Aktual"],
+                xref="x", yref="y", axref="x", ayref="y",
+                showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000'
+            )
+            
     fig_ytd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
     st.plotly_chart(fig_ytd, use_container_width=True)
 
 st.markdown("---")
 
 # --- 4. DATA FRAME COMPILATION FOR MTD & YTD TABLE ---
-st.markdown(f"##### 📋 Tabel Summary Yield Performa (MTD vs YTD)")
+# Format kalimat judul bersih tanpa kata Performa
+st.markdown(f"##### 📋 Tabel Summary Yield (MTD vs YTD)")
 
 df_t_kebun = pd.DataFrame({'Kebun': df_k_mtd['Kebun'].unique()})
 
