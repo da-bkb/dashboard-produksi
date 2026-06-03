@@ -150,4 +150,25 @@ df_total = pd.DataFrame([{
 }])
 
 df_final = pd.concat([df_t_kebun, df_total], ignore_index=True)
-df_final.insert(
+df_final.insert(0, 'No', range(1, len(df_final) + 1))
+
+df_final.columns = [
+    'No', 'Kebun', 
+    'Akt (MTD)', 'Bgt (MTD)', 'Var (MTD)', 'Var MTD (%)',
+    'Akt (YTD)', 'Bgt (YTD)', 'Var (YTD)', 'Var YTD (%)'
+]
+
+def style_variance(val):
+    if isinstance(val, (int, float)):
+        color = 'red' if val < 0 else 'green'
+        return f'color: {color}; font-weight: bold;'
+    return ''
+
+st.dataframe(
+    df_final.style.format({
+        'Akt (MTD)': '{:,.2f}', 'Bgt (MTD)': '{:,.2f}', 'Var (MTD)': '{:+,.2f}', 'Var MTD (%)': '{:+,.2f}%',
+        'Akt (YTD)': '{:,.2f}', 'Bgt (YTD)': '{:,.2f}', 'Var (YTD)': '{:+,.2f}', 'Var YTD (%)': '{:+,.2f}%'
+    }).map(style_variance, subset=['Var (MTD)', 'Var MTD (%)', 'Var (YTD)', 'Var YTD (%)']),
+    use_container_width=True,
+    hide_index=True
+)
