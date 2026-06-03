@@ -2,36 +2,35 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
-df_raw = st.session_state["df_raw"]
-pilihan_bulan = st.session_state["pilihan_bulan"]
+def init_tab(df_raw, pilihan_bulan):
+    # Data sudah disediakan langsung oleh app.py, tidak perlu ambil dari session state
+    df_bln = df_raw[df_raw["Bulan"] == pilihan_bulan].copy()
 
-df_bln = df_raw[df_raw["Bulan"] == pilihan_bulan].copy()
+    list_kebun = sorted(df_bln["Kebun"].unique().tolist())
+    pilihan_kebun = st.selectbox("Pilih Kebun:", list_kebun, key="yield_kebun_picker")
 
-list_kebun = sorted(df_bln["Kebun"].unique().tolist())
-pilihan_kebun = st.selectbox("Pilih Kebun:", list_kebun, key="yield_kebun_picker")
+    df_filtered = df_bln[df_bln["Kebun"] == pilihan_kebun].copy()
 
-df_filtered = df_bln[df_bln["Kebun"] == pilihan_kebun].copy()
+    # Perhitungan Metrik Utama atas
+    total_prod = df_filtered["Kg Akt."].sum()
+    total_luas = df_filtered["Luas"].sum()
+    yield_real = total_prod / total_luas if total_luas > 0 else 0
 
-# Perhitungan Metrik Utama atas
-total_prod = df_filtered["Kg Akt."].sum()
-total_luas = df_filtered["Luas"].sum()
-yield_real = total_prod / total_luas if total_luas > 0 else 0
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Total Produksi (Kg)", f"{total_prod:,.0f}".replace(",", "."))
+    m2.metric("Total Luas (Ha)", f"{total_luas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    m3.metric("Yield Realisasi (Kg/Ha)", f"{yield_real:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
-m1, m2, m3 = st.columns(3)
-m1.metric("Total Produksi (Kg)", f"{total_prod:,.0f}".replace(",", "."))
-m2.metric("Total Luas (Ha)", f"{total_luas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-m3.metric("Yield Realisasi (Kg/Ha)", f"{yield_real:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    st.markdown("---")
 
-st.markdown("---")
-
-# --- GRAFIK BATANG ---
-fig = go.Figure()
-fig.add_trace(go.Bar(
-    x=df_filtered["Afdeling"],
-    y=df_filtered["Ton/ha Akt."],
-    name="Realisasi Ton/Ha",
-    marker_color="rgb(55, 83, 109)"
-))
+    # --- GRAFIK BATANG TUNGGAL ---
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=df_filtered["Afdeling"],
+        y=df_filtered["Ton/ha Akt."],
+        name="Realisasi Ton/Ha",
+        marker_color="rgb(55, 83, 109)"
+    ))
 
 fig.update_layout(
     title=f"Grafik Yield per Afdeling - {pilihan_kebun} ({pilihan_bulan})",
@@ -42,6 +41,7 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # --- TABEL DATA ---
+# Pastikan kolom-kolom ini ada di database Bapak
 df_table = df_filtered[["Afdeling", "Luas", "Kg Akt.", "Ton/ha Akt.", "% Cap."]].copy()
 df_table["Luas"] = df_table["Luas"].map('{:,.2f}'.format)
 df_table["Kg Akt."] = df_table["Kg Akt."].map('{:,.0f}'.format)

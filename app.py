@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import numpy as np
 from datetime import datetime
+import importlib.util
 
 # --- KONFIGURASI HALAMAN UTAMA ---
 st.set_page_config(
@@ -61,7 +62,6 @@ if cek_login():
         if 'Bulan' in df.columns:
             df['Bulan'] = df['Bulan'].astype(str).str.strip().str.upper()
             
-        # Bersihkan koma dan spasi pada angka
         for col in df.columns:
             if col not in ['Bulan', 'Kebun', 'Afdeling']:
                 if df[col].dtype == 'object':
@@ -87,7 +87,7 @@ if cek_login():
 
     with col1:
         basis_analisa = st.selectbox(
-            "🎯 1. Basis Target Analisis:",
+            "🎯 Basis Target Analisis:",
             ["Capaian terhadap BUDGET", "Capaian terhadap SENSUS"],
             key="main_basis_analisa"
         )
@@ -112,36 +112,34 @@ if cek_login():
         default_index_bulan = list_bulan.index(nama_bulan_lalu) if nama_bulan_lalu in list_bulan else 0
 
         with col2:
-            pilihan_bulan = st.selectbox("📅 2. Bulan Analisis:", list_bulan, index=default_index_bulan, key="global_month_picker_main")
-
-        # Masukkan ke session state agar terbaca murni oleh file tabs/
-        st.session_state["df_raw"] = df_raw
-        st.session_state["pilihan_bulan"] = pilihan_bulan
+            pilihan_bulan = st.selectbox("📅 Bulan Analisis:", list_bulan, index=default_index_bulan, key="global_month_picker_main")
 
         with col3:
             menu_analisis = st.selectbox(
-                "📊 3. Pilih Menu Analisis:",
+                "📊 Pilih Menu Analisis:",
                 ["Yield", "RJP", "BJR", "Trend Kebun", "Trend Afdeling"],
                 key="menu_dashboard_navigator_main"
             )
         
         st.markdown("---") 
 
-        # Jalankan sub-menu secara terisolasi agar grafiknya kembali normal per afdeling
+        # Fungsi untuk menjalankan skrip tab sebagai modul terisolasi
+        def jalan_tab(path_file):
+            nama_modul = os.path.splitext(os.path.basename(path_file))[0]
+            spec = importlib.util.spec_from_file_location(nama_modul, path_file)
+            modul = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(modul)
+            # Panggil fungsi inisialisasi yang HARUS ada di setiap file tab
+            modul.init_tab(df_raw, pilihan_bulan)
+
+        # Eksekusi tab sesuai pilihan menu
         if menu_analisis == "Yield":
-            import sys
-            sys.path.append(os.getcwd())
-            with open("tabs/yield_perf.py", encoding="utf-8") as f:
-                exec(f.read(), globals())
+            jalan_tab("tabs/yield_perf.py")
         elif menu_analisis == "RJP":
-            with open("tabs/janjang_pokok.py", encoding="utf-8") as f:
-                exec(f.read(), globals())
+            jalan_tab("tabs/janjang_pokok.py")
         elif menu_analisis == "BJR":
-            with open("tabs/bjr_perf.py", encoding="utf-8") as f:
-                exec(f.read(), globals())
+            jalan_tab("tabs/bjr_perf.py")
         elif menu_analisis == "Trend Afdeling":
-            with open("tabs/trend_afd.py", encoding="utf-8") as f:
-                exec(f.read(), globals())
+            jalan_tab("tabs/trend_afd.py")
         elif menu_analisis == "Trend Kebun":
-            with open("tabs/trend_bln.py", encoding="utf-8") as f:
-                exec(f.read(), globals())
+            jalan_tab("tabs/trend_bln.py")
