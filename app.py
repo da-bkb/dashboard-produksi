@@ -119,16 +119,18 @@ elif menu_analisis == "BJR":
     else:
         st.warning(f"File '{file_tab}' tidak ditemukan di folder tabs.")
 
+# 👇 --- PERBAIKAN: Mengarahkan langsung ke nama file asli milik Bapak --- 👇
 elif menu_analisis == "Trend per Kebun":
-    file_tab = "tabs/trend_kebun.py"
+    file_tab = "tabs/trend_bln.py"
     if os.path.exists(file_tab):
         exec(open(file_tab).read(), global_context)
     else:
-        st.info("ℹ️ File 'tabs/trend_kebun.py' belum dimasukkan ke folder.")
+        st.info("ℹ️ File 'tabs/trend_bln.py' belum dimasukkan ke folder.")
 
 elif menu_analisis == "Trend per Afdeling":
-    file_tab = "tabs/trend_afdeling.py"
+    file_tab = "tabs/trend_afd.py"
     if os.path.exists(file_tab):
         exec(open(file_tab).read(), global_context)
     else:
-        st.info("ℹ️ File 'tabs/trend_afdeling.py' belum dimasukkan ke folder.")
+        st.info("ℹ️ File 'tabs/trend_afd.py' belum dimasukkan ke folder.")
+# 👆 ---------------------------------------------------------------------- 👆
