@@ -2,130 +2,233 @@ import streamlit as st
 import pandas as pd
 import os
 import numpy as np
+import plotly.graph_objects as go
 
-# --- KONFIGURASI HALAMAN UTAMA ---
+# --- 1. KONFIGURASI HALAMAN UTAMA ---
 st.set_page_config(
     page_title="Dashboard Produksi Kelapa Sawit",
     page_icon="🌴",
     layout="wide"
 )
 
-# --- PROSES LOADING DATA BERSIH (Fungsi ditaruh di atas sebelum filter di-render) ---
+# --- 2. FUNGSI LOADING DATA KEDUA FILE REAL-TIME ---
 @st.cache_data
-def load_data(tipe_target):
-    if tipe_target == "Capaian terhadap BUDGET":
-        file_name = "Rekap26.csv"
-        nama_target = "BUDGET"
+def load_all_databases():
+    # Load File Budget
+    file_bgt = "Rekap26.csv"
+    if os.path.exists(file_bgt):
+        try:
+            df_bgt = pd.read_csv(file_bgt, sep=";", decimal=",")
+        except:
+            df_bgt = pd.read_csv(file_bgt, sep=",", decimal=",")
     else:
-        file_name = "Rekap26_Sns.csv"
-        nama_target = "SENSUS"
-        
-    if not os.path.exists(file_name):
-        return pd.DataFrame(), nama_target
+        df_bgt = pd.DataFrame()
 
-    try:
-        df = pd.read_csv(file_name, sep=";", decimal=",")
-    except:
-        df = pd.read_csv(file_name, sep=",", decimal=",")
-        
-    df.columns = df.columns.str.strip()
+    # Load File Sensus
+    file_sns = "Rekap26_Sns.csv"
+    if os.path.exists(file_sns):
+        try:
+            df_sns = pd.read_csv(file_sns, sep=";", decimal=",")
+        except:
+            df_sns = pd.read_csv(file_sns, sep=",", decimal=",")
+    else:
+        df_sns = pd.DataFrame()
+
+    # Bersihkan whitespace kolom dan standarisasi string 'Bulan'
+    for df in [df_bgt, df_sns]:
+        if not df.empty:
+            df.columns = df.columns.str.strip()
+            if 'Bulan' in df.columns:
+                df['Bulan'] = df['Bulan'].astype(str).str.strip().str.upper()
+            if 'Kebun' in df.columns:
+                df['Kebun'] = df['Kebun'].astype(str).str.strip()
+            if 'Afdeling' in df.columns:
+                df['Afdeling'] = df['Afdeling'].astype(str).str.strip()
     
-    if 'Bulan' in df.columns:
-        df['Bulan'] = df['Bulan'].astype(str).str.strip().str.upper()
-        
-    kolom_angka = [
-        'Luas', 'Pokok', 'Jjg Akt.', 'Kg Akt.', 'BJR Akt.', 'Ton/ha Akt.', '% Cap.', 'Gap Ton/Ha', 'Gap %',
-        'Jjg Bgt.', 'Kg Bgt.', 'BJR Bgt.', 'Ton/ha Bgt.',
-        'Jjg Sns.', 'Kg Sns.', 'BJR Sns.', 'Ton/ha Sns.'
-    ]
-    
-    for col in kolom_angka:
-        if col in df.columns:
-            if df[col].dtype == 'object':
-                df[col] = df[col].astype(str).str.replace(' ', '', regex=False)
-                df[col] = df[col].str.replace(',', '.', regex=False)
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-            
-    # Sinkronisasi data Sensus ke struktur kolom Budget agar sub-file langsung jalan
-    if nama_target == "SENSUS":
-        if 'Jjg Sns.' in df.columns: df['Jjg Bgt.'] = df['Jjg Sns.']
-        if 'Kg Sns.' in df.columns:  df['Kg Bgt.'] = df['Kg Sns.']
-        if 'BJR Sns.' in df.columns: df['BJR Bgt.'] = df['BJR Sns.']
-        if 'Ton/ha Sns.' in df.columns: df['Ton/ha Bgt.'] = df['Ton/ha Sns.']
-            
-    return df, nama_target
+    return df_bgt, df_sns
 
+df_bgt_raw, df_sns_raw = load_all_databases()
 
-# =========================================================================
-# 🌴 AREA UTAMA DASHBOARD (ATAS DAN FILTER SEJAJAR)
-# =========================================================================
+if df_bgt_raw.empty or df_sns_raw.empty:
+    st.error("⚠️ File data 'Rekap26.csv' atau 'Rekap26_Sns.csv' tidak ditemukan di root folder!")
+    st.stop()
 
-# 1. Judul Utama Dashboard
-st.title("🌴 Dashboard Performa Produksi Satui")
-st.markdown("Silakan atur basis analisis, periode bulan, dan menu grafik pada panel di bawah ini:")
+# --- 3. FILTER GLOBAL UTAMA (DI ATAS) ---
+st.markdown("<h1 style='text-align: center; color: #28348A;'>🌴 DASHBOARD PRODUKSI PT BKB & PT FFD</h1>", unsafe_allow_html=True)
 st.markdown("---")
 
-# 2. PEMBUATAN 3 KOLOM FILTER UTAMA (SEJAJAR HORIZONTAL)
-col1, col2, col3 = st.columns([1, 1, 1])
+col1, col2 = st.columns(2)
 
 with col1:
-    # Filter 1: Basis Analisis
-    basis_analisa = st.selectbox(
-        "🎯 1. Basis Target Analisis:",
-        ["Capaian terhadap BUDGET", "Capaian terhadap SENSUS"],
-        key="main_basis_analisa"
+    # Mengambil list bulan unik dari data Budget
+    list_bulan = list(df_bgt_raw['Bulan'].unique()) if 'Bulan' in df_bgt_raw.columns else ['MEI']
+    pilihan_bulan = st.selectbox(
+        "📅 1. Pilih Bulan Analisis:", 
+        list_bulan, 
+        index=list_bulan.index("MEI") if "MEI" in list_bulan else 0,
+        key="global_month_picker_main"
     )
 
-# Eksekusi loading database berdasarkan basis analisis terpilih
-df_raw, nama_target = load_data(basis_analisa)
+with col2:
+    # Urutan Tabs Persis Kemauan Bapak: Yield - RJP - BJR - Trend Kebun - Trend Afdeling
+    menu_analisis = st.selectbox(
+        "📊 2. Pilih Menu Analisis:",
+        ["Yield", "RJP", "BJR", "Trend Kebun", "Trend Afdeling"],
+        key="menu_dashboard_navigator_main"
+    )
 
-if df_raw.empty:
-    st.error(f"⚠️ Gagal memuat data. File database '{basis_analisa}' tidak ditemukan.")
+st.markdown("---")
+
+# --- 4. ENGINE FILTER DATA KUMULATIF YEAR TO DATE (YTD) ---
+URUTAN_BULAN_STANDAR = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
+pilihan_bulan_std = "AGS" if pilihan_bulan in ["AGUSTUS", "AGS"] else pilihan_bulan
+
+if pilihan_bulan_std in URUTAN_BULAN_STANDAR:
+    idx_bulan = URUTAN_BULAN_STANDAR.index(pilihan_bulan_std)
+    bulan_ytd = URUTAN_BULAN_STANDAR[:idx_bulan + 1]
 else:
-    df_raw = df_raw.replace([np.inf, -np.inf], np.nan)
+    bulan_ytd = [pilihan_bulan_std]
 
-    # Urutkan urutan bulan standar operational
-    list_bulan_raw = df_raw["Bulan"].unique().tolist()
-    URUTAN_BULAN_STD = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGT', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
-    list_bulan = [b for b in URUTAN_BULAN_STD if b in list_bulan_raw]
-    for b in list_bulan_raw:
-        if b not in list_bulan:
-            list_bulan.append(b)
+# Slice dataframe mentah YTD
+df_bgt_ytd = df_bgt_raw[df_bgt_raw['Bulan'].isin(bulan_ytd)].copy()
+df_sns_ytd = df_sns_raw[df_sns_raw['Bulan'].isin(bulan_ytd)].copy()
 
-    with col2:
-        # Filter 2: Pilihan Bulan
-        pilihan_bulan = st.selectbox(
-            "📅 2. Bulan Analisis:", 
-            list_bulan, 
-            key="global_month_picker_main"
-        )
+# Masukkan ke session state agar dibaca sub-file tab jika dipanggil eksternal
+st.session_state["df_raw"] = df_bgt_ytd  # Kompatibilitas file lama yang baca df_raw
+st.session_state["pilihan_bulan"] = pilihan_bulan
 
-    # Simpan data terpilih ke session state agar terbaca oleh file di folder tabs
-    st.session_state["df_raw"] = df_raw
-    st.session_state["pilihan_bulan"] = pilihan_bulan
-    st.session_state["list_bulan"] = list_bulan
-
-    with col3:
-        # Filter 3: Menu Dashboard Grafik
-        menu_analisis = st.selectbox(
-            "📊 3. Pilih Menu Analisis:",
-            ["Yield / Tonase", "BJR", "Janjang / Pokok (J/P)", "Trend Per Afdeling", "Trend Per Kebun"],
-            key="menu_dashboard_navigator_main"
-        )
+# --- 5. FUNGSI EMBED/RENDER SHEET SUMMARY KOMPARASI PER KEBUN ---
+def render_summary_sheet_view(mode_analisis):
+    st.markdown(f"### 📋 Sheet Summary Analisa {mode_analisis} Per Kebun (YTD s/d {pilihan_bulan})")
     
-    st.markdown("---") # Garis pembatas tebal penanda area visualisasi grafik di bawahnya
+    # Aggregation data Budget per Kebun
+    # Khusus Luas dan Pokok diambil .first() per kombinasi Kebun-Afdeling agar kumulatif bulan tidak melipatgandakan luas lapangan
+    luas_kebun = df_bgt_ytd.groupby(['Kebun', 'Afdeling'])['Luas'].first().reset_index().groupby('Kebun')['Luas'].sum()
+    pokok_kebun = df_bgt_ytd.groupby(['Kebun', 'Afdeling'])['Pokok'].first().reset_index().groupby('Kebun')['Pokok'].sum()
+    
+    bgt_grp = df_bgt_ytd.groupby('Kebun').agg({
+        'Kg Akt.': 'sum',
+        'Kg Bgt.': 'sum',
+        'Jjg Akt.': 'sum',
+        'Jjg Bgt.': 'sum'
+    })
+    bgt_grp['Luas'] = luas_kebun
+    bgt_grp['Pokok'] = pokok_kebun
+    bgt_grp = bgt_grp.reset_index()
 
-    # Ambil konteks memori global agar sub-file tabs mengenali variabel utama app.py
-    global_context = globals()
+    # Aggregation data Sensus per Kebun
+    sns_grp = df_sns_ytd.groupby('Kebun').agg({
+        'Kg Sns.': 'sum',
+        'Jjg Sns.': 'sum'
+    }).reset_index()
 
-    # --- ROUTING EKSEKUSI FILE SUB-TAB ---
-    if menu_analisis == "Yield / Tonase":
+    # Gabungkan data komparasi
+    df_sum_kebun = pd.merge(bgt_grp, sns_grp, on='Kebun', how='left').fillna(0)
+
+    # Kalkulasi rasio spesifik berdasarkan menu yang aktif
+    if mode_analisis == "Yield":
+        df_sum_kebun['Aktual'] = df_sum_kebun['Kg Akt.'] / df_sum_kebun['Luas'] / 1000
+        df_sum_kebun['Target_Budget'] = df_sum_kebun['Kg Bgt.'] / df_sum_kebun['Luas'] / 1000
+        df_sum_kebun['Target_Sensus'] = df_sum_kebun['Kg Sns.'] / df_sum_kebun['Luas'] / 1000
+        fmt_unit = "Ton/Ha"
+    elif mode_analisis == "RJP":
+        df_sum_kebun['Aktual'] = df_sum_kebun['Jjg Akt.'] / df_sum_kebun['Pokok']
+        df_sum_kebun['Target_Budget'] = df_sum_kebun['Jjg Bgt.'] / df_sum_kebun['Pokok']
+        df_sum_kebun['Target_Sensus'] = df_sum_kebun['Jjg Sns.'] / df_sum_kebun['Pokok']
+        fmt_unit = "Jjg/Pokok"
+    else:  # BJR
+        df_sum_kebun['Aktual'] = df_sum_kebun['Kg Akt.'] / df_sum_kebun['Jjg Akt.']
+        df_sum_kebun['Target_Budget'] = df_sum_kebun['Kg Bgt.'] / df_sum_kebun['Jjg Bgt.']
+        df_sum_kebun['Target_Sensus'] = df_sum_kebun['Kg Sns.'] / df_sum_kebun['Jjg Sns.']
+        fmt_unit = "Kg"
+
+    df_sum_kebun['Capaian_Bgt'] = (df_sum_kebun['Aktual'] / df_sum_kebun['Target_Budget'] * 100).fillna(0)
+    df_sum_kebun['Capaian_Sns'] = (df_sum_kebun['Aktual'] / df_sum_kebun['Target_Sensus'] * 100).fillna(0)
+
+    # Tampilkan Tabel ala Excel Summary Sheet dengan pewarnaan otomatis
+    df_table_show = df_sum_kebun[['Kebun', 'Aktual', 'Target_Budget', 'Target_Sensus', 'Capaian_Bgt', 'Capaian_Sns']].copy()
+    
+    def format_color_pct(val):
+        bg = '#FF0000' if val < 95 else ('#FFA500' if val < 105 else '#00B050')
+        return f'background-color: {bg}; color: white; font-weight: bold;'
+
+    st.dataframe(
+        df_table_show.style.format({
+            'Aktual': '{:,.2f}', 'Target_Budget': '{:,.2f}', 'Target_Sensus': '{:,.2f}',
+            'Capaian_Bgt': '{:,.2f}%', 'Capaian_Sns': '{:,.2f}%'
+        }).map(format_color_pct, subset=['Capaian_Bgt', 'Capaian_Sns']),
+        use_container_width=True
+    )
+
+    # --- RENDER GRAPH GAP SUMMARY KEBUN ---
+    st.markdown(f"#### 📉 Grafik Analisis Gap Kebun {mode_analisis} terhadap Target")
+    ref_target = st.radio(f"Pilih Acuan Target ({mode_analisis}):", ["Terhadap BUDGET", "Terhadap SENSUS"], horizontal=True, key=f"rad_{mode_analisis}")
+    tgt_col = 'Target_Budget' if ref_target == "Terhadap BUDGET" else 'Target_Sensus'
+
+    fig_summary = go.Figure()
+    # 1. Batang Aktual -> Warna Biru Tua (#28348A)
+    fig_summary.add_trace(go.Bar(
+        x=df_sum_kebun['Kebun'], y=df_sum_kebun['Aktual'],
+        name=f'{mode_analisis} Aktual', marker_color='#28348A', width=0.35
+    ))
+    # Legenda Target Line -> Warna Hijau (#00B050)
+    fig_summary.add_trace(go.Scatter(
+        x=[None], y=[None], mode='lines',
+        line=dict(color='#00B050', width=4), name=ref_target
+    ))
+
+    # Looping draw line hijau dan panah gap merah
+    for idx, row in df_sum_kebun.iterrows():
+        fig_summary.add_shape(
+            type="line", x0=idx - 0.25, x1=idx + 0.25,
+            y0=row[tgt_col], y1=row[tgt_col],
+            line=dict(color="#00B050", width=4)
+        )
+        # Jika realisasi di bawah target -> Kasih panah gap merah jatuh kebawah (#FF0000)
+        if row['Aktual'] < row[tgt_col]:
+            fig_summary.add_annotation(
+                x=idx, y=row[tgt_col], ax=idx, ay=row['Aktual'],
+                xref="x", yref="y", axref="x", ayref="y",
+                showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=3, arrowcolor='#FF0000'
+            )
+
+    fig_summary.update_layout(
+        template="plotly_white", margin=dict(l=40, r=40, t=40, b=40),
+        yaxis_title=fmt_unit, legend=dict(orientation="h", y=1.1)
+    )
+    st.plotly_chart(fig_summary, use_container_width=True)
+    st.markdown("---")
+
+# --- 6. ROUTING EKSEKUSI TABS UTAMA ---
+global_context = globals()
+
+if menu_analisis == "Yield":
+    render_summary_sheet_view("Yield")
+    # Panggil filter internal afdeling dari sub-file aslinya di bawah summary kebun
+    if os.path.exists("tabs/yield_perf.py"):
         exec(open("tabs/yield_perf.py").read(), global_context)
-    elif menu_analisis == "BJR":
-        exec(open("tabs/bjr_perf.py").read(), global_context)
-    elif menu_analisis == "Janjang / Pokok (J/P)":
+
+elif menu_analisis == "RJP":
+    render_summary_sheet_view("RJP")
+    if os.path.exists("tabs/janjang_pokok.py"):
         exec(open("tabs/janjang_pokok.py").read(), global_context)
-    elif menu_analisis == "Trend Per Afdeling":
-        exec(open("tabs/trend_afd.py").read(), global_context)
-    elif menu_analisis == "Trend Per Kebun":
-        exec(open("tabs/trend_bln.py").read(), global_context)
+
+elif menu_analisis == "BJR":
+    render_summary_sheet_view("BJR")
+    if os.path.exists("tabs/bjr_perf.py"):
+        exec(open("tabs/bjr_perf.py").read(), global_context)
+
+elif menu_analisis == "Trend Kebun":
+    st.markdown(f"## 📈 Trend Performa Kebun (Januari - Mei)")
+    # Langsung teruskan baca file visualisasi trend kebun yang sudah bapak miliki sebelumnya
+    if os.path.exists("tabs/trend_kebun.py"):
+        exec(open("tabs/trend_kebun.py").read(), global_context)
+    else:
+        st.info("Sub-file 'tabs/trend_kebun.py' tidak ditemukan. Silakan letakkan file trend kebun Bapak di folder tabs.")
+
+elif menu_analisis == "Trend Afdeling":
+    st.markdown(f"## 📉 Trend Performa Afdeling (Januari - Mei)")
+    if os.path.exists("tabs/trend_afdeling.py"):
+        exec(open("tabs/trend_afdeling.py").read(), global_context)
+    else:
+        st.info("Sub-file 'tabs/trend_afdeling.py' tidak ditemukan. Silakan letakkan file trend afdeling Bapak di folder tabs.")
