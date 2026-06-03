@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # =========================================================================
-# 🔒 SISTEM LOGIN KEAMANAN DASHBOARD (FINAL)
+# 🔒 SISTEM LOGIN KEAMANAN DASHBOARD
 # =========================================================================
 def cek_login():
     """Fungsi untuk memeriksa status login pengguna"""
@@ -88,7 +88,6 @@ if cek_login():
                 
         return df, nama_target
 
-
     # =========================================================================
     # 🌴 AREA UTAMA DASHBOARD
     # =========================================================================
@@ -151,7 +150,6 @@ if cek_login():
         st.session_state["list_bulan"] = list_bulan
 
         with col3:
-            # Urutan menu yang sudah fix sesuai instruksi Bapak
             menu_analisis = st.selectbox(
                 "📊 3. Pilih Menu Analisis:",
                 ["Yield", "RJP", "BJR", "Trend Kebun", "Trend Afdeling"],

@@ -24,7 +24,7 @@ m3.metric("BJR Realisasi (Kg)", f"{bjr_real:,.2f}".replace(",", "X").replace("."
 
 st.markdown("---")
 
-# --- GRAFIK BATANG TUNGGAL ---
+# --- GRAFIK BATANG ---
 fig = go.Figure()
 fig.add_trace(go.Bar(
     x=df_filtered["Afdeling"],

@@ -24,7 +24,7 @@ m3.metric("Yield Realisasi (Kg/Ha)", f"{yield_real:,.2f}".replace(",", "X").repl
 
 st.markdown("---")
 
-# --- GRAFIK BATANG TUNGGAL ---
+# --- GRAFIK BATANG ---
 fig = go.Figure()
 fig.add_trace(go.Bar(
     x=df_filtered["Afdeling"],
@@ -45,7 +45,7 @@ st.plotly_chart(fig, use_container_width=True)
 df_table = df_filtered[["Afdeling", "Luas", "Kg Akt.", "Ton/ha Akt.", "% Cap."]].copy()
 df_table["Luas"] = df_table["Luas"].map('{:,.2f}'.format)
 df_table["Kg Akt."] = df_table["Kg Akt."].map('{:,.0f}'.format)
-df_table["Ton/ha Akt."] = df_table["Ton/ha Akt Tuk"].map('{:,.2f}'.format) if "Ton/ha Akt Tuk" in df_table.columns else df_table["Ton/ha Akt."].map('{:,.2f}'.format)
+df_table["Ton/ha Akt."] = df_table["Ton/ha Akt."].map('{:,.2f}'.format)
 df_table["% Cap."] = df_table["% Cap."].map('{:,.2f}%'.format)
 
 st.dataframe(df_table, use_container_width=True)

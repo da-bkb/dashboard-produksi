@@ -24,7 +24,7 @@ m3.metric("Rasio Janjang Pokok (RJP)", f"{rjp_real:,.2f}".replace(",", "X").repl
 
 st.markdown("---")
 
-# --- GRAFIK BATANG TUNGGAL ---
+# --- GRAFIK BATANG ---
 df_filtered["RJP_Akt_Afd"] = df_filtered["Jjg Akt."] / df_filtered["Pokok"]
 
 fig = go.Figure()
