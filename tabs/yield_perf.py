@@ -75,7 +75,7 @@ with col_g1:
     fig_mtd.add_trace(go.Scatter(x=df_k_mtd["Kebun"], y=[None]*len(df_k_mtd), mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
     for idx, row in df_k_mtd.iterrows():
         fig_mtd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-        if row["Pct"] < 95 or row["Pct"] > 105:
+        if row["Pct"] < 90 or row["Pct"] > 110:
             fig_mtd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
     fig_mtd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
     st.plotly_chart(fig_mtd, use_container_width=True, key="chart_yield_bgt_kebun_mtd")
@@ -91,7 +91,7 @@ with col_g2:
     fig_ytd.add_trace(go.Scatter(x=df_k_ytd["Kebun"], y=[None]*len(df_k_ytd), mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
     for idx, row in df_k_ytd.iterrows():
         fig_ytd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-        if row["Pct"] < 95 or row["Pct"] > 105:
+        if row["Pct"] < 90 or row["Pct"] > 110:
             fig_ytd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
     fig_ytd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
     st.plotly_chart(fig_ytd, use_container_width=True, key="chart_yield_bgt_kebun_ytd")
@@ -190,7 +190,7 @@ if not df_m_afd.empty:
         fig_amtd.add_trace(go.Scatter(x=df_a_mtd["Afdeling"], y=[None]*len(df_a_mtd), mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
         for idx, row in df_a_mtd.iterrows():
             fig_amtd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-            if row["Pct"] < 95 or row["Pct"] > 105:
+            if row["Pct"] < 90 or row["Pct"] > 110:
                 fig_amtd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
         fig_amtd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
         st.plotly_chart(fig_amtd, use_container_width=True, key="chart_yield_bgt_afd_mtd")
@@ -202,7 +202,7 @@ if not df_m_afd.empty:
         fig_aytd.add_trace(go.Scatter(x=df_a_ytd["Afdeling"], y=[None]*len(df_a_ytd), mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
         for idx, row in df_a_ytd.iterrows():
             fig_aytd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-            if row["Pct"] < 95 or row["Pct"] > 105:
+            if row["Pct"] < 90 or row["Pct"] > 110:
                 fig_aytd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
         fig_aytd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
         st.plotly_chart(fig_aytd, use_container_width=True, key="chart_yield_bgt_afd_ytd")
