@@ -1,239 +1,91 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
 
 # Ambil data global dari session state app.py
 df_raw = st.session_state["df_raw"]
 pilihan_bulan = st.session_state["pilihan_bulan"]
 
-# Judul utama bersih sesuai format seragam
 st.markdown(f"### 🌱 Yield terhadap Budget (Ton/Ha)")
 
-# --- 1. PROSES FILTER TIMEFRAME BERDASARKAN BULAN / CAWU / SEMESTER ---
+# --- 1. PROSES FILTER TIMEFRAME ---
 URUTAN_BULAN_STD = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
 
-# Mapping rentang MTD dan akumulasi YTD untuk mengakomodasi CAWU & SEMESTER
 if pilihan_bulan == 'CAWU I':
-    bulan_mtd_list = ['JAN', 'FEB', 'MAR', 'APR']
-    bulan_ytd_list = ['JAN', 'FEB', 'MAR', 'APR']
+    bulan_mtd, bulan_ytd = ['JAN', 'FEB', 'MAR', 'APR'], ['JAN', 'FEB', 'MAR', 'APR']
 elif pilihan_bulan == 'CAWU II':
-    bulan_mtd_list = ['MEI', 'JUN', 'JUL', 'AGS']
-    bulan_ytd_list = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS']
+    bulan_mtd, bulan_ytd = ['MEI', 'JUN', 'JUL', 'AGS'], ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS']
 elif pilihan_bulan == 'CAWU III':
-    bulan_mtd_list = ['SEP', 'OKT', 'NOV', 'DES']
-    bulan_ytd_list = URUTAN_BULAN_STD.copy()
-elif pilihan_bulan == 'SEMESTER I':
-    bulan_mtd_list = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN']
-    bulan_ytd_list = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN']
-elif pilihan_bulan == 'SEMESTER II':
-    bulan_mtd_list = ['JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES']
-    bulan_ytd_list = URUTAN_BULAN_STD.copy()
+    bulan_mtd, bulan_ytd = ['SEP', 'OKT', 'NOV', 'DES'], URUTAN_BULAN_STD
 else:
-    # Mengantisipasi input teks bulan penuh / singkatan
-    pilihan_bulan_std = "AGS" if pilihan_bulan in ["AGUSTUS", "AGS"] else pilihan_bulan
-    bulan_mtd_list = [pilihan_bulan_std]
-    if pilihan_bulan_std in URUTAN_BULAN_STD:
-        idx_bulan = URUTAN_BULAN_STD.index(pilihan_bulan_std)
-        bulan_ytd_list = URUTAN_BULAN_STD[:idx_bulan + 1]
-    else:
-        bulan_ytd_list = [pilihan_bulan_std]
+    bulan_mtd, bulan_ytd = [pilihan_bulan], [pilihan_bulan]
 
-# Memotong dataframe menggunakan (.isin) agar support multi-bulan (macro)
-df_mtd = df_raw[df_raw['Bulan'].isin(bulan_mtd_list)].copy()
-df_ytd = df_raw[df_raw['Bulan'].isin(bulan_ytd_list)].copy()
+df_mtd = df_raw[df_raw['Bulan'].isin(bulan_mtd)].copy()
+df_ytd = df_raw[df_raw['Bulan'].isin(bulan_ytd)].copy()
 
-# --- 2. PERHITUNGAN AGREGASI DATA KEBUN ---
-luas_kebun_mtd = df_mtd.groupby(['Kebun', 'Afdeling'])['Luas'].first().reset_index().groupby('Kebun')['Luas'].sum()
-luas_kebun_ytd = df_ytd.groupby(['Kebun', 'Afdeling'])['Luas'].first().reset_index().groupby('Kebun')['Luas'].sum()
+# --- 2. FUNGSI PERHITUNGAN YIELD ---
+def calc_yield(df):
+    df_g = df.groupby('Kebun').agg({'Kg Akt.': 'sum', 'Kg Bgt.': 'sum', 'Luas': 'sum'}).reset_index()
+    df_g['Aktual'] = df_g['Kg Akt.'] / df_g['Luas'] / 1000
+    df_g['Target'] = df_g['Kg Bgt.'] / df_g['Luas'] / 1000
+    df_g['Var'] = df_g['Aktual'] - df_g['Target']
+    df_g['Pct'] = (df_g['Aktual'] / df_g['Target'] * 100) - 100
+    return df_g
 
-# MTD Level Kebun
-df_k_mtd = df_mtd.groupby('Kebun').agg({'Kg Akt.': 'sum', 'Kg Bgt.': 'sum'}).reset_index()
-df_k_mtd['Luas'] = df_k_mtd['Kebun'].map(luas_kebun_mtd)
-df_k_mtd['Aktual'] = df_k_mtd['Kg Akt.'] / df_k_mtd['Luas'] / 1000
-df_k_mtd['Target'] = df_k_mtd['Kg Bgt.'] / df_k_mtd['Luas'] / 1000
-df_k_mtd['Pct'] = (df_k_mtd['Aktual'] / df_k_mtd['Target'] * 100).fillna(0)
+df_k_mtd = calc_yield(df_mtd)
+df_k_ytd = calc_yield(df_ytd)
 
-# YTD Level Kebun
-df_k_ytd = df_ytd.groupby('Kebun').agg({'Kg Akt.': 'sum', 'Kg Bgt.': 'sum'}).reset_index()
-df_k_ytd['Luas'] = df_k_ytd['Kebun'].map(luas_kebun_ytd)
-df_k_ytd['Aktual'] = df_k_ytd['Kg Akt.'] / df_k_ytd['Luas'] / 1000
-df_k_ytd['Target'] = df_k_ytd['Kg Bgt.'] / df_k_ytd['Luas'] / 1000
-df_k_ytd['Pct'] = (df_k_ytd['Aktual'] / df_k_ytd['Target'] * 100).fillna(0)
-
-# --- 3. LAYOUT GRAFIK BERSEBELAHAN (KEBUN) ---
-col_g1, col_g2 = st.columns(2)
-
-with col_g1:
-    st.markdown(f"##### 📊 Yield Per Kebun - {pilihan_bulan}")
-    fig_mtd = go.Figure()
-    fig_mtd.add_trace(go.Bar(
-        x=df_k_mtd["Kebun"], y=df_k_mtd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35,
-        text=[f"{p:,.1f}%" for p in df_k_mtd["Pct"]], textposition="inside", insidetextanchor="start",
-        textfont=dict(color="white", size=12, family="Arial Black")
-    ))
-    fig_mtd.add_trace(go.Scatter(x=df_k_mtd["Kebun"], y=[None]*len(df_k_mtd), mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
-    for idx, row in df_k_mtd.iterrows():
-        fig_mtd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-        if row["Pct"] < 95 or row["Pct"] > 105:
-            fig_mtd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
-    fig_mtd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
-    st.plotly_chart(fig_mtd, use_container_width=True, key="chart_yield_bgt_kebun_mtd")
-
-with col_g2:
-    st.markdown(f"##### 📊 Yield Per Kebun - s.d {pilihan_bulan}")
-    fig_ytd = go.Figure()
-    fig_ytd.add_trace(go.Bar(
-        x=df_k_ytd["Kebun"], y=df_k_ytd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35,
-        text=[f"{p:,.1f}%" for p in df_k_ytd["Pct"]], textposition="inside", insidetextanchor="start",
-        textfont=dict(color="white", size=12, family="Arial Black")
-    ))
-    fig_ytd.add_trace(go.Scatter(x=df_k_ytd["Kebun"], y=[None]*len(df_k_ytd), mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
-    for idx, row in df_k_ytd.iterrows():
-        fig_ytd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-        if row["Pct"] < 95 or row["Pct"] > 105:
-            fig_ytd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
-    fig_ytd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
-    st.plotly_chart(fig_ytd, use_container_width=True, key="chart_yield_bgt_kebun_ytd")
-
-
-# --- 4. DATA FRAME COMPILATION & STYLING FOR TABLES (KEBUN) ---
-def style_gap_black(val):
-    return 'color: black; font-weight: bold;'
-
+# --- 3. FUNGSI WARNA KOREKSI ---
 def style_var_fill_koreksi(val):
     if isinstance(val, (int, float)):
-        if val < -30: 
-            return 'background-color: #FF0000; color: white; font-weight: bold; text-align: right;' # Merah
-        elif val < -20: 
-            return 'background-color: #FF9900; color: black; font-weight: bold; text-align: right;' # Orange
-        elif val < -10: 
-            return 'background-color: #FFFF00; color: black; font-weight: bold; text-align: right;' # Kuning
-        else: 
-            return 'background-color: #A9D08E; color: black; font-weight: bold; text-align: right;' # Hijau
+        if val < -30: return 'background-color: #FF0000; color: white; font-weight: bold; text-align: right;' # Merah
+        elif val < -20: return 'background-color: #FF9900; color: black; font-weight: bold; text-align: right;' # Orange
+        elif val < -10: return 'background-color: #FFFF00; color: black; font-weight: bold; text-align: right;' # Kuning
+        else: return 'background-color: #A9D08E; color: black; font-weight: bold; text-align: right;' # Hijau
     return ''
 
-st.markdown("<style>th { text-align: center !important; }</style>", unsafe_allow_html=True)
+def style_gap_black(val): return 'color: black; font-weight: bold;'
+
+# --- 4. GRAFIK (MEMUNCULKAN GRAFIK) ---
+col_g1, col_g2 = st.columns(2)
+for col, df, title, k in [(col_g1, df_k_mtd, "Bulan Ini", "bgt_chart_mtd"), (col_g2, df_k_ytd, "s.d Bulan Ini", "bgt_chart_ytd")]:
+    with col:
+        st.markdown(f"##### 📊 Grafik Yield - {title}")
+        fig = go.Figure()
+        fig.add_trace(go.Bar(x=df['Kebun'], y=df['Aktual'], name='Aktual', marker_color='#28348A'))
+        fig.add_trace(go.Scatter(x=df['Kebun'], y=df['Target'], name='Budget', line=dict(color='#00B050', width=3)))
+        st.plotly_chart(fig, use_container_width=True, key=k)
+
+# --- 5. TABEL KEBUN (LAYOUT RJP) ---
 col_t1, col_t2 = st.columns(2)
+for col, df, title, k in [(col_t1, df_k_mtd, "Bulan Ini", "t_bgt_mtd"), (col_t2, df_k_ytd, "s.d Bulan Ini", "t_bgt_ytd")]:
+    with col:
+        st.markdown(f"##### 📋 Data Yield Per Kebun - {title}")
+        df_f = df[['Kebun', 'Aktual', 'Target', 'Var', 'Pct']].copy()
+        df_f.insert(0, 'No', range(1, len(df_f) + 1))
+        df_f.columns = ['No', 'Kebun', 'Aktual (Ton/Ha)', 'Budget (Ton/Ha)', 'Gap (Ton/Ha)', 'Var (%)']
+        st.dataframe(df_f.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Budget (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'})
+                     .map(style_gap_black, subset=['Gap (Ton/Ha)'])
+                     .map(style_var_fill_koreksi, subset=['Var (%)'])
+                     .set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key=k)
 
-with col_t1:
-    st.markdown(f"##### 📋 Data Yield Per Kebun - {pilihan_bulan}")
-    df_t_mtd = df_k_mtd[['Kebun', 'Aktual', 'Target']].copy()
-    df_t_mtd.columns = ['Kebun', 'Aktual', 'Budget']
-    df_t_mtd['Var'] = df_t_mtd['Aktual'] - df_t_mtd['Budget']
-    df_t_mtd['Pct'] = (df_t_mtd['Aktual'] / df_t_mtd['Budget'] * 100) - 100
-    
-    luas_site_mtd = luas_kebun_mtd.sum()
-    site_mtd_akt = df_mtd['Kg Akt.'].sum() / luas_site_mtd / 1000
-    site_mtd_bgt = df_mtd['Kg Bgt.'].sum() / luas_site_mtd / 1000
-    df_total_mtd = pd.DataFrame([{'Kebun': 'TOTAL SITE', 'Aktual': site_mtd_akt, 'Budget': site_mtd_bgt, 'Var': site_mtd_akt - site_mtd_bgt, 'Pct': (site_mtd_akt / site_mtd_bgt * 100) - 100}])
-    
-    df_final_mtd = pd.concat([df_t_mtd, df_total_mtd], ignore_index=True)
-    df_final_mtd.insert(0, 'No', range(1, len(df_final_mtd) + 1))
-    df_final_mtd.columns = ['No', 'Kebun', 'Aktual (Ton/Ha)', 'Budget (Ton/Ha)', 'Gap (Ton/Ha)', 'Var (%)']
-    st.dataframe(df_final_mtd.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Budget (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Ton/Ha)']).map(style_budget_var_fill, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_yield_bgt_kebun_mtd")
-
-with col_t2:
-    st.markdown(f"##### 📋 Data Yield Per Kebun - s.d {pilihan_bulan}")
-    df_t_ytd = df_k_ytd[['Kebun', 'Aktual', 'Target']].copy()
-    df_t_ytd.columns = ['Kebun', 'Aktual', 'Budget']
-    df_t_ytd['Var'] = df_t_ytd['Aktual'] - df_t_ytd['Budget']
-    df_t_ytd['Pct'] = (df_t_ytd['Aktual'] / df_t_ytd['Budget'] * 100) - 100
-    
-    luas_site_ytd = luas_kebun_ytd.sum()
-    site_ytd_akt = df_ytd['Kg Akt.'].sum() / luas_site_ytd / 1000
-    site_ytd_bgt = df_ytd['Kg Bgt.'].sum() / luas_site_ytd / 1000
-    df_total_ytd = pd.DataFrame([{'Kebun': 'TOTAL SITE', 'Aktual': site_ytd_akt, 'Budget': site_ytd_bgt, 'Var': site_ytd_akt - site_ytd_bgt, 'Pct': (site_ytd_akt / site_ytd_bgt * 100) - 100}])
-    
-    df_final_ytd = pd.concat([df_t_ytd, df_total_ytd], ignore_index=True)
-    df_final_ytd.insert(0, 'No', range(1, len(df_final_ytd) + 1))
-    df_final_ytd.columns = ['No', 'Kebun', 'Aktual (Ton/Ha)', 'Budget (Ton/Ha)', 'Gap (Ton/Ha)', 'Var (%)']
-    st.dataframe(df_final_ytd.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Budget (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Ton/Ha)']).map(style_budget_var_fill, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_yield_bgt_kebun_ytd")
-
-
-# =========================================================================
-# --- 5. SUB DETAIL PER AFDELING (BUDGET) ---
-# =========================================================================
+# --- 6. DETAIL AFDELING ---
 st.markdown("---")
 st.markdown("### 🔎 Detail per Afdeling")
+kb = st.selectbox("Pilih Kebun untuk melihat detail Afdeling:", sorted(df_raw['Kebun'].dropna().unique()), key="sb_y_bgt_afd")
 
-# Pilih Kebun untuk filter Afdeling
-list_kebun = sorted(df_raw['Kebun'].dropna().unique())
-kebun_terpilih = st.selectbox("Pilih Kebun untuk melihat detail Afdeling:", list_kebun, key="sb_perf_afd")
-
-# Filter data mentah berdasarkan kebun terpilih
-df_m_afd = df_mtd[df_mtd['Kebun'] == kebun_terpilih].copy()
-df_y_afd = df_ytd[df_ytd['Kebun'] == kebun_terpilih].copy()
-
-if not df_m_afd.empty:
-    # Perhitungan Luas per Afdeling (Luas First per Afdeling)
-    luas_afd_mtd = df_m_afd.groupby('Afdeling')['Luas'].first()
-    luas_afd_ytd = df_y_afd.groupby('Afdeling')['Luas'].first()
-
-    # MTD Afdeling
-    df_a_mtd = df_m_afd.groupby('Afdeling').agg({'Kg Akt.': 'sum', 'Kg Bgt.': 'sum'}).reset_index()
-    df_a_mtd['Luas'] = df_a_mtd['Afdeling'].map(luas_afd_mtd)
-    df_a_mtd['Aktual'] = df_a_mtd['Kg Akt.'] / df_a_mtd['Luas'] / 1000
-    df_a_mtd['Target'] = df_a_mtd['Kg Bgt.'] / df_a_mtd['Luas'] / 1000
-    df_a_mtd['Pct'] = (df_a_mtd['Aktual'] / df_a_mtd['Target'] * 100).fillna(0)
-
-    # YTD Afdeling
-    df_a_ytd = df_y_afd.groupby('Afdeling').agg({'Kg Akt.': 'sum', 'Kg Bgt.': 'sum'}).reset_index()
-    df_a_ytd['Luas'] = df_a_ytd['Afdeling'].map(luas_afd_ytd)
-    df_a_ytd['Aktual'] = df_a_ytd['Kg Akt.'] / df_a_ytd['Luas'] / 1000
-    df_a_ytd['Target'] = df_a_ytd['Kg Bgt.'] / df_a_ytd['Luas'] / 1000
-    df_a_ytd['Pct'] = (df_a_ytd['Aktual'] / df_a_ytd['Target'] * 100).fillna(0)
-
-    # LAYOUT GRAFIK AFDELING
-    col_ga1, col_ga2 = st.columns(2)
+df_a_mtd = df_mtd[df_mtd['Kebun'] == kb].copy()
+if not df_a_mtd.empty:
+    df_a = df_a_mtd.groupby('Afdeling').agg({'Kg Akt.': 'sum', 'Kg Bgt.': 'sum', 'Luas': 'sum'}).reset_index()
+    df_a['Aktual'] = df_a['Kg Akt.'] / df_a['Luas'] / 1000
+    df_a['Target'] = df_a['Kg Bgt.'] / df_a['Luas'] / 1000
+    df_a['Var'] = df_a['Aktual'] - df_a['Target']
+    df_a['Pct'] = (df_a['Aktual'] / df_a['Target'] * 100) - 100
     
-    with col_ga1:
-        st.markdown(f"##### 📊 Yield Per Afdeling ({kebun_terpilih}) - {pilihan_bulan}")
-        fig_amtd = go.Figure()
-        fig_amtd.add_trace(go.Bar(x=df_a_mtd["Afdeling"], y=df_a_mtd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35, text=[f"{p:,.1f}%" for p in df_a_mtd["Pct"]], textposition="inside", insidetextanchor="start", textfont=dict(color="white", size=11, family="Arial Black")))
-        fig_amtd.add_trace(go.Scatter(x=df_a_mtd["Afdeling"], y=[None]*len(df_a_mtd), mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
-        for idx, row in df_a_mtd.iterrows():
-            fig_amtd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-            if row["Pct"] < 95 or row["Pct"] > 105:
-                fig_amtd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
-        fig_amtd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
-        st.plotly_chart(fig_amtd, use_container_width=True, key="chart_yield_bgt_afd_mtd")
-
-    with col_ga2:
-        st.markdown(f"##### 📊 Yield Per Afdeling ({kebun_terpilih}) - s.d {pilihan_bulan}")
-        fig_aytd = go.Figure()
-        fig_aytd.add_trace(go.Bar(x=df_a_ytd["Afdeling"], y=df_a_ytd["Aktual"], name="Aktual", marker_color="#28348A", width=0.35, text=[f"{p:,.1f}%" for p in df_a_ytd["Pct"]], textposition="inside", insidetextanchor="start", textfont=dict(color="white", size=11, family="Arial Black")))
-        fig_aytd.add_trace(go.Scatter(x=df_a_ytd["Afdeling"], y=[None]*len(df_a_ytd), mode='lines', line=dict(color='#00B050', width=4), name='Budget'))
-        for idx, row in df_a_ytd.iterrows():
-            fig_aytd.add_shape(type="line", x0=idx-0.2, x1=idx+0.2, y0=row["Target"], y1=row["Target"], line=dict(color="#00B050", width=4))
-            if row["Pct"] < 95 or row["Pct"] > 105:
-                fig_aytd.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
-        fig_aytd.update_layout(template="plotly_white", yaxis_title="Ton/Ha", margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", y=1.15))
-        st.plotly_chart(fig_aytd, use_container_width=True, key="chart_yield_bgt_afd_ytd")
-
-    # LAYOUT TABEL AFDELING
-    col_ta1, col_ta2 = st.columns(2)
+    df_a.insert(0, 'No', range(1, len(df_a)+1))
+    df_a.columns = ['No', 'Afdeling', 'Aktual (Ton/Ha)', 'Budget (Ton/Ha)', 'Gap (Ton/Ha)', 'Var (%)']
     
-    with col_ta1:
-        st.markdown(f"##### 📋 Data Yield Per Afdeling - {pilihan_bulan}")
-        df_ta_mtd = df_a_mtd[['Afdeling', 'Aktual', 'Target']].copy()
-        df_ta_mtd.columns = ['Afdeling', 'Aktual', 'Budget']
-        df_ta_mtd['Var'] = df_ta_mtd['Aktual'] - df_ta_mtd['Budget']
-        df_ta_mtd['Pct'] = (df_ta_mtd['Aktual'] / df_ta_mtd['Budget'] * 100) - 100
-        
-        df_ta_mtd.insert(0, 'No', range(1, len(df_ta_mtd) + 1))
-        df_ta_mtd.columns = ['No', 'Afdeling', 'Aktual (Ton/Ha)', 'Budget (Ton/Ha)', 'Gap (Ton/Ha)', 'Var (%)']
-        st.dataframe(df_ta_mtd.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Budget (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Ton/Ha)']).map(style_budget_var_fill, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_yield_bgt_afd_mtd")
-
-    with col_ta2:
-        st.markdown(f"##### 📋 Data Yield Per Afdeling - s.d {pilihan_bulan}")
-        df_ta_ytd = df_a_ytd[['Afdeling', 'Aktual', 'Target']].copy()
-        df_ta_ytd.columns = ['Afdeling', 'Aktual', 'Budget']
-        df_ta_ytd['Var'] = df_ta_ytd['Aktual'] - df_ta_ytd['Budget']
-        df_ta_ytd['Pct'] = (df_ta_ytd['Aktual'] / df_ta_ytd['Budget'] * 100) - 100
-        
-        df_ta_ytd.insert(0, 'No', range(1, len(df_ta_ytd) + 1))
-        df_ta_ytd.columns = ['No', 'Afdeling', 'Aktual (Ton/Ha)', 'Budget (Ton/Ha)', 'Gap (Ton/Ha)', 'Var (%)']
-        st.dataframe(df_ta_ytd.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Budget (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'}).map(style_gap_black, subset=['Gap (Ton/Ha)']).map(style_budget_var_fill, subset=['Var (%)']).set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_yield_bgt_afd_ytd")
-else:
-    st.warning("Tidak ada data Afdeling untuk kebun ini.")
+    st.dataframe(df_a.style.format({'Aktual (Ton/Ha)': '{:,.2f}', 'Budget (Ton/Ha)': '{:,.2f}', 'Gap (Ton/Ha)': '{:+,.2f}', 'Var (%)': '{:+,.1f}%'})
+                 .map(style_gap_black, subset=['Gap (Ton/Ha)'])
+                 .map(style_var_fill_koreksi, subset=['Var (%)'])
+                 .set_properties(subset=['No'], **{'text-align': 'center'}), use_container_width=True, hide_index=True, key="table_yield_bgt_afd")
