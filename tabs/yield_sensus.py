@@ -103,9 +103,14 @@ def style_gap_black(val):
 
 def style_var_fill_koreksi(val):
     if isinstance(val, (int, float)):
-        if val > 5: return 'background-color: #FFC000; color: black; font-weight: bold; text-align: right;'
-        elif -5 <= val <= 5: return 'background-color: #A9D08E; color: black; font-weight: bold; text-align: right;'
-        else: return 'background-color: #FF8585; color: black; font-weight: bold; text-align: right;'
+        if val < -30: 
+            return 'background-color: #FF0000; color: white; font-weight: bold; text-align: right;' # Merah
+        elif val < -20: 
+            return 'background-color: #FF9900; color: black; font-weight: bold; text-align: right;' # Orange
+        elif val < -10: 
+            return 'background-color: #FFFF00; color: black; font-weight: bold; text-align: right;' # Kuning
+        else: 
+            return 'background-color: #A9D08E; color: black; font-weight: bold; text-align: right;' # Hijau
     return ''
 
 st.markdown("<style>th { text-align: center !important; }</style>", unsafe_allow_html=True)
