@@ -52,9 +52,7 @@ def load_data(tipe_target):
 
 def aplikasi_utama():
     """Fungsi pembungkus seluruh dashboard utama jika login berhasil"""
-    if IS_LOCAL:
-        st.warning("🛠️ **DEVELOPMENT MODE (LOKAL):** Perubahan di sini tidak akan mempengaruhi pengguna lain.")
-    
+        
     # --- 5. JUDUL DASHBOARD ---
     st.markdown("<h1 style='text-align: center; color: #28348A;'>🌴 DASHBOARD PRODUKSI PT BKB & PT FFD</h1>", unsafe_allow_html=True)
     
