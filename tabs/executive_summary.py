@@ -25,15 +25,27 @@ def load_summary_data():
 df_bgt, df_sns = load_summary_data()
 URUTAN_BULAN_STD = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGT', 'SEP', 'OKT', 'NOV', 'DES']
 
-# --- FILTER PERIODE ---
+# --- FILTER PERIODE (DIPERBAIKI) ---
 pilihan_bulan = st.session_state.get("pilihan_bulan", "MEI")
 target_aktif = st.session_state.get("global_target_type_picker", "Budget")
 
-b = str(pilihan_bulan).upper()
-idx = URUTAN_BULAN_STD.index(b) if b in URUTAN_BULAN_STD else 4
-bi_m, sd_m = [URUTAN_BULAN_STD[idx]], URUTAN_BULAN_STD[:idx+1]
+# Logika Cawu & Semester
+if pilihan_bulan == "CAWU I":
+    bi_m, sd_m = ['JAN', 'FEB', 'MAR', 'APR'], ['JAN', 'FEB', 'MAR', 'APR']
+elif pilihan_bulan == "CAWU II":
+    bi_m, sd_m = ['MEI', 'JUN', 'JUL', 'AGT'], ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGT']
+elif pilihan_bulan == "CAWU III":
+    bi_m, sd_m = ['SEP', 'OKT', 'NOV', 'DES'], URUTAN_BULAN_STD
+elif pilihan_bulan == "SEMESTER I":
+    bi_m, sd_m = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN'], ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN']
+elif pilihan_bulan == "SEMESTER II":
+    bi_m, sd_m = ['JUL', 'AGT', 'SEP', 'OKT', 'NOV', 'DES'], URUTAN_BULAN_STD
+else:
+    b = str(pilihan_bulan).upper()
+    idx = URUTAN_BULAN_STD.index(b) if b in URUTAN_BULAN_STD else 4
+    bi_m, sd_m = [URUTAN_BULAN_STD[idx]], URUTAN_BULAN_STD[:idx+1]
 
-# --- ENGINE KALKULASI (DIPERBAIKI) ---
+# --- ENGINE KALKULASI ---
 def get_metrics_for_all_pt(target_type, bi_l, sd_l):
     df_t = df_bgt if target_type == "Budget" else df_sns
     results = {}
@@ -49,9 +61,13 @@ def get_metrics_for_all_pt(target_type, bi_l, sd_l):
             kg_t = sub_t['KG BGT.'].sum() if target_type == "Budget" else sub_t['KG SNS.'].sum()
             jjg_t = sub_t['JJG BGT.'].sum() if target_type == "Budget" else sub_t['JJG SNS.'].sum()
             
-            y_a, y_t = (kg_a/1000)/luas if luas>0 else 0, (kg_t/1000)/(sub_t['LUAS'].sum() if target_type=="Sensus" else luas)
-            r_a, r_t = jjg_a/pokok if pokok>0 else 0, jjg_t/(sub_t['POKOK'].sum() if target_type=="Sensus" else pokok)
-            b_a, b_t = kg_a/jjg_a if jjg_a>0 else 0, kg_t/jjg_t if jjg_t>0 else 0
+            # Perbaikan: Jika data kosong, hindari pembagian nol
+            y_a = (kg_a/1000)/luas if luas>0 else 0
+            y_t = (kg_t/1000)/(sub_t['LUAS'].sum() if target_type=="Sensus" else luas) if (sub_t['LUAS'].sum() if target_type=="Sensus" else luas)>0 else 0
+            r_a = jjg_a/pokok if pokok>0 else 0
+            r_t = jjg_t/(sub_t['POKOK'].sum() if target_type=="Sensus" else pokok) if (sub_t['POKOK'].sum() if target_type=="Sensus" else pokok)>0 else 0
+            b_a = kg_a/jjg_a if jjg_a>0 else 0
+            b_t = kg_t/jjg_t if jjg_t>0 else 0
             return y_a, y_t, r_a, r_t, b_a, b_t
 
         y1, yt1, r1, rt1, b1, bt1 = calc(bi_l)
@@ -61,7 +77,7 @@ def get_metrics_for_all_pt(target_type, bi_l, sd_l):
 
 data = get_metrics_for_all_pt(target_aktif, bi_m, sd_m)
 
-# --- RENDERER ---
+# --- RENDERER (DENGAN PANAH MERAH) ---
 def render_bullet(df, title, y_axis_title, key):
     fig = go.Figure()
     fig.add_trace(go.Bar(
@@ -75,7 +91,7 @@ def render_bullet(df, title, y_axis_title, key):
         if row["Pct"] < 90 or row["Pct"] > 110:
             fig.add_annotation(x=idx, y=row["Target"], ax=idx, ay=row["Aktual"], xref="x", yref="y", axref="x", ayref="y", showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2.5, arrowcolor='#FF0000')
     fig.update_layout(template="plotly_white", yaxis_title=y_axis_title, margin=dict(l=20, r=20, t=40, b=20), height=300, legend=dict(orientation="h", y=1.15))
-    st.plotly_chart(fig, use_container_width=True, key=key)
+    st.plotly_chart(fig, use_container_width=True, key=f"{key}_{pilihan_bulan}_{target_aktif}")
 
 # Proses Rendering untuk 3 Metrik
 for m_idx, m_name, y_title in [(0, "Yield", "Ton/Ha"), (2, "RJP", "Janjang/Pokok"), (4, "BJR", "Kg/Janjang")]:
