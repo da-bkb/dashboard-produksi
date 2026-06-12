@@ -3,231 +3,259 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import os
-from scipy import stats  # Library regresi linear & Korelasi Pearson
+from scipy import stats
 
 # --- 1. SETTING DEFAULT & LOAD DATA ---
-st.markdown("# 🔬 Analisa Korelasi Historis Pemupukan NPK 13 vs RJP (Janjang/Pokok)")
+st.markdown("# 🔬 Analisa Korelasi Historis Curah Hujan vs RJP (Janjang/Pokok)")
 st.markdown("---")
 
-# Mengambil data produksi global dari session state app.py
-df_prod_raw = st.session_state["df_raw"].copy()
-
-# Membaca data rekap iklim curah hujan dan hari hujan
+FILE_PRODUKSI = "Trend_produksi_satui.csv"
 FILE_IKLIM = "Rkp_ch_hh.csv"
 
-if not os.path.exists(FILE_IKLIM):
-    st.error(f"⚠️ File data curah hujan '{FILE_IKLIM}' tidak ditemukan di direktori!")
+if not os.path.exists(FILE_PRODUKSI) or not os.path.exists(FILE_IKLIM):
+    st.error("⚠️ File 'Trend_produksi_satui.csv' atau 'Rkp_ch_hh.csv' tidak ditemukan di direktori!")
     st.stop()
 
-# Load data iklim dengan pemisah titik koma dan penanganan decimal koma
+# Load Data Produksi Multi-Tahun
+df_prod = pd.read_csv(FILE_PRODUKSI, sep=";", decimal=",", engine="python")
+df_prod.columns = df_prod.columns.str.strip().str.upper()
+df_prod['BULAN'] = df_prod['BULAN'].astype(str).str.strip().str.upper()
+df_prod['KEBUN'] = df_prod['KEBUN'].astype(str).str.strip().str.upper()
+
+# Load Data Iklim Historis
 df_ch = pd.read_csv(FILE_IKLIM, sep=";", decimal=",", engine="python")
-df_ch.columns = df_ch.columns.str.strip()
-df_ch['Bulan'] = df_ch['Bulan'].astype(str).str.strip().str.upper()
-df_ch['Kebun'] = df_ch['Kebun'].astype(str).str.strip()
-df_ch['Afd'] = df_ch['Afd'].astype(str).str.strip()
+df_ch.columns = df_ch.columns.str.strip().str.upper()
+df_ch['BULAN'] = df_ch['BULAN'].astype(str).str.strip().str.upper()
+df_ch['KEBUN'] = df_ch['KEBUN'].astype(str).str.strip().str.upper()
 
-# Pastikan tipe data kolom Tahun pada iklim adalah integer
-if 'Tahun' in df_ch.columns:
-    df_ch['Tahun'] = df_ch['Tahun'].astype(int)
-
-# --- 2. FILTER KEBUN & AFDELING (Sesuai SOP Redaksi Singkat Direksi) ---
-list_kebun_bersama = sorted(list(set(df_prod_raw['Kebun'].unique()).intersection(set(df_ch['Kebun'].unique()))))
-
-if not list_kebun_bersama:
-    list_kebun_bersama = list(df_ch['Kebun'].unique())
-
-col_f1, col_f2, col_f3 = st.columns([1.1, 1.1, 1.8])
-with col_f1:
-    pilihan_kebun = st.selectbox("📍 Pilih Kebun:", list_kebun_bersama, key="exec_ch_kebun_picker")
-with col_f2:
-    df_ch_sub = df_ch[df_ch['Kebun'] == pilihan_kebun]
-    list_afd = sorted(list(df_ch_sub['Afd'].unique()))
-    pilihan_afd = st.selectbox("🚪 Pilih Afdeling:", list_afd, key="exec_ch_afd_picker")
-with col_f3:
-    # Slider Fleksibel Jeda Iklim Makro Jangka Panjang (0 s.d 48 bulan)
-    pilihan_lag = st.slider("⏱️ Lag Bulan Ke Belakang:", min_value=0, max_value=48, value=12, step=1)
-
-# --- 3. PROSES KONSOLIDASI DATA DENGAN KALKULASI KALENDER RIIL ---
+# --- 2. FILTER UTAMA KEBUN & LAG BULAN ---
+list_kebun = sorted(list(df_prod['KEBUN'].unique()))
 URUTAN_BULAN_STD = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGT', 'SEP', 'OKT', 'NOV', 'DES']
 MAPPING_KAPITAL_BARU = {
     'JAN': 'Jan', 'FEB': 'Feb', 'MAR': 'Mar', 'APR': 'Apr', 'MEI': 'Mei', 'JUN': 'Jun',
     'JUL': 'Jul', 'AGT': 'Agt', 'SEP': 'Sep', 'OKT': 'Okt', 'NOV': 'Nov', 'DES': 'Des'
 }
 
-TAHUN_PRODUKSI_BERJALAN = 2026
+col_f1, col_f2 = st.columns([1.1, 1.9])
+with col_f1:
+    pilihan_kebun = st.selectbox("📍 Pilih Kebun:", list_kebun, key="exec_ch_kebun_picker")
+with col_f2:
+    pilihan_lag = st.slider("⏱️ Lag Bulan Sebelum Panen:", min_value=0, max_value=48, value=12, step=1)
+    
+    # Panduan Fase Fisiologis Kelapa Sawit (Warna Biru #28348A)
+    st.markdown("""
+    <div style='color: #28348A; font-size: 12.5px; font-weight: bold; line-height: 1.4; margin-top: -5px; margin-bottom: 10px;'>
+    ℹ️ Panduan Fase Fisiologis Tandan Sawit:<br>
+    • Fase Anthesis (6 bulan)<br>
+    • Fase Aborsi Bunga (10-15 bulan)<br>
+    • Fase Diferensiasi Jantan-Betina (16-24 bulan)<br>
+    • Fase Primordia/ Pembentukan Bakal Bunga (25-40 bulan)
+    </div>
+    """, unsafe_allow_html=True)
 
-# A. Pemrosesan Data RJP Produksi
-df_prod_filtered = df_prod_raw[(df_prod_raw['Kebun'] == pilihan_kebun) & (df_prod_raw['Afdeling'] == pilihan_afd)].copy()
-cols_prod = list(df_prod_filtered.columns)
+# --- 3. PROSES KONSOLIDASI DATA BERBASIS KALENDER RIIL ---
+df_prod_filtered = df_prod[df_prod['KEBUN'] == pilihan_kebun].copy()
+df_prod_filtered['BULAN_IDX'] = df_prod_filtered['BULAN'].apply(lambda x: URUTAN_BULAN_STD.index(x) if x in URUTAN_BULAN_STD else 99)
+df_prod_filtered = df_prod_filtered[df_prod_filtered['BULAN_IDX'] != 99]
 
-COL_JAN_AKT = next((c for c in cols_prod if 'akt' in c.lower() and any(x in c.lower() for x in ['jg', 'jjg', 'jan', 'janjang'])), None)
-COL_HA = next((c for c in cols_prod if 'ha' in c.lower() or 'luas' in c.lower()), None)
+# Hitung RJP bulanan aktual
+df_prod_filtered['RJP_AKTUAL'] = df_prod_filtered['AKT_JJG'] / df_prod_filtered['POKOK']
+df_prod_map = df_prod_filtered[df_prod_filtered['RJP_AKTUAL'] > 0].reset_index(drop=True)
 
-if df_prod_filtered.empty or not COL_JAN_AKT or not COL_HA:
-    st.warning("⚠️ Data janjang atau Luas HA tidak ditemukan untuk kombinasi Kebun dan Afdeling ini.")
-    st.stop()
+df_ch_filtered = df_ch[df_ch['KEBUN'] == pilihan_kebun].copy()
+df_ch_filtered['BULAN_IDX'] = df_ch_filtered['BULAN'].apply(lambda x: URUTAN_BULAN_STD.index(x) if x in URUTAN_BULAN_STD else 99)
 
-if 'Tahun' in df_prod_filtered.columns:
-    df_prod_map = df_prod_filtered.groupby(['Tahun', 'Bulan']).agg({COL_JAN_AKT: 'sum', COL_HA: 'max'}).reset_index()
-else:
-    df_prod_map = df_prod_filtered.groupby('Bulan').agg({COL_JAN_AKT: 'sum', COL_HA: 'max'}).reset_index()
-    df_prod_map['Tahun'] = TAHUN_PRODUKSI_BERJALAN
-
-df_prod_map['RJP_Aktual'] = df_prod_map[COL_JAN_AKT] / (df_prod_map[COL_HA] * 135)
-df_prod_map['Bulan_Idx'] = df_prod_map['Bulan'].apply(lambda x: URUTAN_BULAN_STD.index(x) if x in URUTAN_BULAN_STD else 99)
-df_prod_map = df_prod_map[df_prod_map['Bulan_Idx'] != 99]
-
-# TRIMMING PENGAMAN: Potong data produksi HANYA pada bulan yang sudah berjalan (RJP > 0)
-df_prod_map = df_prod_map[df_prod_map['RJP_Aktual'] > 0].reset_index(drop=True)
-
-if df_prod_map.empty:
-    st.warning("⚠️ Belum ada data aktual RJP (> 0) pada periode ini untuk kalkulasi.")
-    st.stop()
-
-# B. Pemrosesan Data Curah Hujan (Curah_Hujan) Historis
-df_ch_filtered = df_ch[(df_ch['Kebun'] == pilihan_kebun) & (df_ch['Afd'] == pilihan_afd)].copy()
-df_ch_filtered['Bulan_Idx'] = df_ch_filtered['Bulan'].apply(lambda x: URUTAN_BULAN_STD.index(x) if x in URUTAN_BULAN_STD else 99)
-df_ch_filtered = df_ch_filtered[df_ch_filtered['Bulan_Idx'] != 99]
-
-# C. ALGORITMA SIKLUS WAKTU MUNDUR KALENDER TAHUN RIIL
 list_hasil_rekonstruksi = []
-
 for idx, r_prod in df_prod_map.iterrows():
-    bln_idx_prod = r_prod['Bulan_Idx']
-    current_tahun_prod = int(r_prod['Tahun'])
+    bln_idx_prod = int(r_prod['BULAN_IDX'])
+    tahun_prod = int(r_prod['TAHUN'])
     
-    # Hitung mundur total bulan kalender absolut sesuai slider lag
-    total_bulan_target = (current_tahun_prod * 12 + bln_idx_prod) - pilihan_lag
-    
+    total_bulan_target = (tahun_prod * 12 + bln_idx_prod) - pilihan_lag
     tahun_ch_target = total_bulan_target // 12
     bln_idx_ch_target = total_bulan_target % 12
-    nama_bulan_ch_target = URUTAN_BULAN_STD[bln_idx_ch_target]
     
-    match_ch = df_ch_filtered[
-        (df_ch_filtered['Tahun'] == tahun_ch_target) & 
-        (df_ch_filtered['Bulan_Idx'] == bln_idx_ch_target)
-    ]
-        
-    if not match_ch.empty:
-        val_curah_hujan = match_ch['Curah_Hujan'].sum()
-    else:
-        val_curah_hujan = 0.0
-        
+    match_ch = df_ch_filtered[(df_ch_filtered['TAHUN'] == tahun_ch_target) & (df_ch_filtered['BULAN_IDX'] == bln_idx_ch_target)]
+    val_curah_hujan = match_ch['CURAH_HUJAN'].sum() if not match_ch.empty else 0.0
+    
     list_hasil_rekonstruksi.append({
-        'Tahun_Prod_YY': str(current_tahun_prod)[2:],
-        'Bulan_Idx_Prod': bln_idx_prod,
-        'Bulan_Prod': r_prod['Bulan'],
-        'RJP_Aktual': r_prod['RJP_Aktual'],
-        'Bulan_Idx_CH': bln_idx_ch_target,
-        'Nama_Bulan_CH': nama_bulan_ch_target,
-        'Tahun_CH_YY': str(tahun_ch_target)[2:],
-        'Curah_Hujan': val_curah_hujan
+        'TAHUN_PROD': tahun_prod,
+        'TAHUN_PROD_YY': str(tahun_prod)[2:],
+        'BULAN_IDX_PROD': bln_idx_prod,
+        'BULAN_PROD': r_prod['BULAN'],
+        'RJP_AKTUAL': r_prod['RJP_AKTUAL'],
+        'NAMA_BULAN_CH': URUTAN_BULAN_STD[bln_idx_ch_target],
+        'TAHUN_CH_YY': str(tahun_ch_target)[2:],
+        'CURAH_HUJAN': val_curah_hujan,
+        'URUTAN_ABS': tahun_prod * 12 + bln_idx_prod
     })
 
-df_analisa = pd.DataFrame(list_hasil_rekonstruksi).sort_values('Bulan_Idx_Prod').reset_index(drop=True)
+df_master = pd.DataFrame(list_hasil_rekonstruksi).sort_values('URUTAN_ABS').reset_index(drop=True)
 
-# --- 4. GRAFIK OVERLAY TREN HISTORIS SEJAJAR KRONOLOGIS ---
-st.subheader(f"📈 Pengaruh Curah Hujan (mm) (Lag {pilihan_lag} Bulan) vs RJP")
+if df_master.empty:
+    st.warning("⚠️ Tidak ada data.")
+    st.stop()
+
+# --- 4. SELEKTOR RENTANG WAKTU TERPISAH MURNI ---
+col_t1, col_t2, col_t3, col_t4 = st.columns(4)
+list_tahun_tersedia = sorted(list(df_master['TAHUN_PROD'].unique()))
+list_bulan_tampil = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des']
+
+with col_t1:
+    pilihan_bln_awal = st.selectbox("🗓️ Bulan Awal:", list_bulan_tampil, index=0, key="ch_start_month")
+with col_t2:
+    pilihan_thn_awal = st.selectbox("🗓️ Tahun Awal:", list_tahun_tersedia, index=0, key="ch_start_year")
+
+with col_t3:
+    pilihan_bln_akhir = st.selectbox("🗓️ Bulan Akhir:", list_bulan_tampil, index=len(list_bulan_tampil)-1, key="ch_end_month")
+with col_t4:
+    pilihan_thn_akhir = st.selectbox("🗓️ Tahun Akhir:", list_tahun_tersedia, index=len(list_tahun_tersedia)-1, key="ch_end_year")
+
+val_abs_awal = pilihan_thn_awal * 12 + list_bulan_tampil.index(pilihan_bln_awal)
+val_abs_akhir = pilihan_thn_akhir * 12 + list_bulan_tampil.index(pilihan_bln_akhir)
+
+if val_abs_awal > val_abs_akhir:
+    st.error("❌ Eror: Periode Awal tidak boleh lebih besar dari Periode Akhir!")
+    st.stop()
+
+df_analisa = df_master[(df_master['URUTAN_ABS'] >= val_abs_awal) & (df_master['URUTAN_ABS'] <= val_abs_akhir)].copy().reset_index(drop=True)
+
+if df_analisa.empty:
+    st.warning("⚠️ Tidak ada data pada rentang waktu terpilih.")
+    st.stop()
+
+# --- 5. GRAFIK OVERLAY TREN HISTORIS SEJAJAR ---
+st.markdown(f"##### 📈 Pengaruh Curah Hujan (mm) (Lag {pilihan_lag} Bulan) vs RJP")
 
 fig_overlay = go.Figure()
 
-x_labels_multiline = []
-for idx, r in df_analisa.iterrows():
-    nama_bulan_prod = MAPPING_KAPITAL_BARU.get(r['Bulan_Prod'], r['Bulan_Prod'])
-    tahun_prod_yy = r['Tahun_Prod_YY']
-    nama_bulan_ch = MAPPING_KAPITAL_BARU.get(r['Nama_Bulan_CH'], r['Nama_Bulan_CH'])
-    tahun_ch_yy = r['Tahun_CH_YY']
-    
-    label_gabung = f"{nama_bulan_prod}-{tahun_prod_yy}<br><span style='color:#00B050; font-size:11px; font-weight:bold;'>CH: {nama_bulan_ch}-{tahun_ch_yy}</span>"
-    x_labels_multiline.append(label_gabung)
+# REVISI WARNA: Menyelaraskan teks aktual panen menjadi Biru (#28348A) mengikuti warna tema sumbu
+x_labels_multiline = [
+    f"<span style='color:#28348A; font-weight:bold;'>{MAPPING_KAPITAL_BARU.get(r['BULAN_PROD'], r['BULAN_PROD'])}-{r['TAHUN_PROD_YY']}</span><br>"
+    f"<span style='color:#00B050; font-size:11px; font-weight:bold;'>{MAPPING_KAPITAL_BARU.get(r['NAMA_BULAN_CH'], r['NAMA_BULAN_CH'])}-{r['TAHUN_CH_YY']}</span>" 
+    for idx, r in df_analisa.iterrows()
+]
 
-# Sumbu Kiri: RJP
-fig_overlay.add_trace(go.Scatter(
-    x=x_labels_multiline, y=df_analisa["RJP_Aktual"],
-    mode='lines+markers', name="RJP (Jjg/Pkk)",
-    line=dict(color='#28348A', width=3, shape='spline'),
-    marker=dict(size=8, color='#28348A', symbol='circle')
-))
+# Sumbu Kiri: RJP (Biru #28348A)
+fig_overlay.add_trace(go.Scatter(x=x_labels_multiline, y=df_analisa["RJP_AKTUAL"], mode='lines+markers', name="RJP (Jjg/Pkk)", line=dict(color='#28348A', width=3, shape='spline'), marker=dict(size=8, color='#28348A')))
+# Sumbu Kanan: Curah Hujan (Hijau #00B050)
+fig_overlay.add_trace(go.Scatter(x=x_labels_multiline, y=df_analisa["CURAH_HUJAN"], mode='lines+markers', name="Curah Hujan (mm)", line=dict(color='#00B050', width=2.5, shape='spline', dash='dash'), marker=dict(size=7, color='#00B050', symbol='square'), yaxis="y2"))
 
-# Sumbu Kanan: Curah Hujan (mm)
-fig_overlay.add_trace(go.Scatter(
-    x=x_labels_multiline, y=df_analisa["Curah_Hujan"],
-    mode='lines+markers', name=f"Curah Hujan ({pilihan_lag} Bln Lalu)",
-    line=dict(color='#00B050', width=2.5, shape='spline', dash='dash'),
-    marker=dict(size=7, color='#00B050', symbol='square'),
-    yaxis="y2"
-))
+axis_title_html = "Hubungan <span style='color:#28348A; font-weight:bold;'>Bulan Panen</span> dan <span style='color:#00B050; font-weight:bold;'>Bulan Historis Hujan</span>"
 
 fig_overlay.update_layout(
-    xaxis=dict(title=dict(text="Garis Waktu Hubungan (Baris Atas: Panen Berjalan | Baris Bawah: Rekap Curah Hujan Historis)"), type='category', categoryorder='array', categoryarray=x_labels_multiline),
+    xaxis=dict(title=dict(text=axis_title_html), type='category', categoryorder='array', categoryarray=x_labels_multiline),
     yaxis=dict(title=dict(text="RJP (Janjang/Pokok)", font=dict(color="#28348A")), tickfont=dict(color="#28348A")),
     yaxis2=dict(title=dict(text="Curah Hujan (mm)", font=dict(color="#00B050")), tickfont=dict(color="#00B050"), overlaying="y", side="right"),
-    hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-    margin=dict(l=40, r=40, t=30, b=50), height=420
+    hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), margin=dict(l=40, r=40, t=30, b=50), height=420
 )
 st.plotly_chart(fig_overlay, use_container_width=True)
 
-# --- 5. VISUALISASI SCATTER PLOT & REGRESI DINAMIS ---
+# --- 6. VISUALISASI SCATTER PLOT & REGRESI DINAMIS ---
 st.markdown("---")
 col_graph, col_narasi = st.columns([1.3, 1])
+x_data = df_analisa['CURAH_HUJAN'].values
+y_data = df_analisa['RJP_AKTUAL'].values
 
-x_data = df_analisa['Curah_Hujan'].values
-y_data = df_analisa['RJP_Aktual'].values
-
-# Hitung komponen regresi & Korelasi Pearson otomatis via scipy
-b_slope, a_intercept, r_value, p_value, std_err = stats.linregress(x_data, y_data)
-r_squared = r_value ** 2
-
-x_line = np.linspace(x_data.min(), x_data.max(), 100) if len(x_data) > 0 else np.array([0, 1])
-y_line = a_intercept + b_slope * x_line
+if len(x_data) > 1:
+    b_slope, a_intercept, r_value, p_value, std_err = stats.linregress(x_data, y_data)
+    r_squared = r_value ** 2
+    x_line = np.linspace(x_data.min(), x_data.max(), 100)
+    y_line = a_intercept + b_slope * x_line
+else:
+    b_slope, a_intercept, r_squared = 0.0, 0.0, 0.0
+    x_line, y_line = np.array([0, 1]), np.array([0, 1])
 
 with col_graph:
-    st.subheader(f"📊 Scatter Plot & Trend RJP (Lag {pilihan_lag} Bulan)")
-    
+    # REVISI HURUF: Mengecilkan font judul komponen scatter plot menggunakan heading level 5 (#####)
+    st.markdown(f"##### 📊 Scatter Plot & Trend RJP (Lag {pilihan_lag} Bulan)")
     fig_scatter = go.Figure()
-    fig_scatter.add_trace(go.Scatter(x=x_data, y=y_data, mode='markers', marker=dict(size=12, color='#28348A', opacity=0.8, line=dict(width=1, color='White')), text=df_analisa['Bulan_Prod'], hovertemplate="<b>Siklus Panen: %{text}</b><br>Curah Hujan: %{x:.1f} mm<br>RJP: %{y:.2f} Jg/Pkk<extra></extra>"))
-    fig_scatter.add_trace(go.Scatter(x=x_line, y=y_line, mode='lines', line=dict(color='#C62828', width=2)))
-    
-    fig_scatter.update_layout(
-        xaxis=dict(title=dict(text=f"Curah Hujan (mm) - Lag {pilihan_lag} Bulan")),
-        yaxis=dict(title=dict(text="RJP (Janjang/Pokok)")),
-        margin=dict(l=20, r=20, t=20, b=20), height=350, showlegend=False
-    )
+    fig_scatter.add_trace(go.Scatter(x=x_data, y=y_data, mode='markers', marker=dict(size=12, color='#28348A', opacity=0.8, line=dict(width=1, color='White')), text=df_analisa['BULAN_PROD'], hovertemplate="<b>Siklus Panen: %{text}</b><br>Curah Hujan: %{x:.1f} mm<br>RJP: %{y:.4f} Jg/Pkk<extra></extra>"))
+    if len(x_data) > 1:
+        fig_scatter.add_trace(go.Scatter(x=x_line, y=y_line, mode='lines', line=dict(color='#C62828', width=2)))
+    fig_scatter.update_layout(xaxis=dict(title=dict(text="Curah Hujan (mm) - Lag " + str(pilihan_lag) + " Bulan")), yaxis=dict(title=dict(text="RJP (Janjang/Pokok)")), margin=dict(l=20, r=20, t=20, b=20), height=350, showlegend=False)
     st.plotly_chart(fig_scatter, use_container_width=True)
 
 with col_narasi:
-    # Sub-judul Uraian & Analisa Korelasi Pearson
-    st.subheader("📝 Uraian & Analisa Korelasi Pearson")
-    st.markdown(f"Hasil Pemodelan Statistik Aktual Kebun {pilihan_kebun} - Afdeling {pilihan_afd} :")
-    
+    # REVISI HURUF: Mengecilkan font judul komponen uraian menggunakan heading level 5 (#####)
+    st.markdown("##### 📝 Uraian & Analisa Korelasi Pearson")
+    st.markdown(f"Hasil Pemodelan Statistik Aktual Kebun {pilihan_kebun} :")
     tanda_b = "+" if b_slope >= 0 else "-"
-    formula_text = f"$$y = {a_intercept:.3f} {tanda_b} {abs(b_slope):.3f}x$$"
-    st.info(f"**Persamaan Regresi RJP:**\n{formula_text}")
+    st.info(f"**Persamaan Regresi RJP:**\n$$y = {a_intercept:.3f} {tanda_b} {abs(b_slope):.3f}x$$")
     
-    if b_slope >= 0:
-        dampak_text = f"**Positif (Searah)**. Pola menunjukkan kesesuaian teori iklim, setiap penambahan intensitas curah hujan pada {pilihan_lag} bulan lalu berkontribusi meningkatkan rasio bunga feminin kelapa sawit pada bulan berjalan."
+    if r_squared >= 0.70:
+        kekuatan = "Kuat"
+    elif r_squared >= 0.40:
+        kekuatan = "Moderat"
     else:
-        dampak_text = f"**Negatif (Terbalik)**. Tren data menunjukkan deviasi korelasi terbalik pada model lag ini."
+        kekuatan = "Lemah"
+        
+    arah_hubungan = "Positif" if b_slope >= 0 else "Negatif"
+    efek_aksi = "peningkatan" if b_slope >= 0 else "penurunan"
+
+    if pilihan_lag == 6:
+        nama_fase = "Fase Anthesis (6 bulan)"
+        insight_utama = (
+            "Pada Fase Anthesis (bunga mekar berjalan), air berfungsi vital menjaga kesuburan tepung sari. "
+            f"Model regresi {arah_hubungan} {kekuatan} ini membuktikan tingkat keberhasilan penyerbukan buah kelapa sawit. "
+            "Jika b bernilai positif, tambahan air hujan mendukung optimalnya proses fertilisasi kelapa sawit. "
+            "Namun apabila koefisien b bernilai negatif, intensitas hujan ekstrem (*over-wetting*) justru merusak viabilitas "
+            "serbuk sari dan menghambat mobilitas terbang kumbang penyerbuk Elaeidobius kamerunicus, memicu buah partenokarpi (kempes)."
+        )
+        opsi_perbaikan = (
+            "Apabila korelasi berbalik negatif akibat curah hujan berlebih, lakukan manajemen sanitasi piringan secara ketat "
+            "untuk mengurangi kelembaban mikro ekstrem, serta rencanakan aplikasi hatching-box kumbang penyerbuk tambahan di lapangan."
+        )
+    elif 10 <= pilihan_lag <= 15:
+        nama_fase = f"Fase Aborsi Bunga ({pilihan_lag} bulan)"
+        insight_utama = (
+            "Rentang waktu ini mencerminkan tingkat kerentanan bakal buah sawit terhadap gugur premature akibat cekaman lingkungan. "
+            f"Korelasi {arah_hubungan} {kekuatan} mencerminkan ketersediaan kadar air tanah makro. Jika koefisien b bernilai positif, "
+            "tambahan hujan menekan pelepasan senyawa etilen pohon sehingga aborsi berkurang. Jika b bernilai negatif, akumulasi hujan "
+            "ekstrem memicu kondisi jenuh air (*waterlogging*) pada perakaran sawit yang menghentikan respirasi akar napas."
+        )
+        opsi_perbaikan = (
+            "Jika korelasi positif dominan (artinya blok kekurangan air), prioritaskan pembuatan rorak penampung air hujan dan "
+            "aplikasi mulsa pelepah kelapa sawit. Jika korelasi negatif dominan (kelebihan air), lakukan cuci parit cacing blok sesegera mungkin."
+        )
+    elif 16 <= pilihan_lag <= 24:
+        nama_fase = f"Fase Diferensiasi Jantan-Betina ({pilihan_lag} bulan)"
+        insight_utama = (
+            "Ini adalah jendela paling kritis yang menentukan rasio jenis kelamin tunas bunga (*Sex Ratio*). "
+            f"Korelasi {arah_hubungan} {kekuatan} memotret stabilitas pasokan energi tanaman. Jika b bernilai positif, pasokan "
+            "air yang memadai mendorong pembentukan hormon giberelin untuk melahirkan bunga betina penghasil janjang. Jika b bernilai "
+            "negatif, kelebihan air atau defisit matahari akibat awan tebal mengganggu fotosintesis pelepah, memicu pohon sawit "
+            "memproduksi mayoritas bunga jantan yang mandul."
+        )
+        opsi_perbaikan = (
+            "Pertahankan tinggi muka air tanah (*water-table*) di level aman 50-60 cm pada area rendahan. Serta perkuat aplikasi "
+            "pupuk unsur hara Kalium dan Boron dosis tepat sebelum memasuki rentang bulan diferensiasi kritis ini."
+        )
+    elif 25 <= pilihan_lag <= 40:
+        nama_fase = f"Fase Primordia / Pembentukan Bakal Bunga ({pilihan_lag} bulan)"
+        insight_utama = (
+            "Tahap paling awal inisiasi sel atau pembentukan jaringan primordia bakal bunga di ketiak pelepah bagian dalam. "
+            f"Korelasi {arah_hubungan} {kekuatan} mencerminkan kecukupan asupan energi vegetatif jangka panjang. Nilai koefisien b "
+            "menunjukkan seberapa sensitif sel primordial merespon kelembaban tanah; hubungan positif menandakan kesiapan "
+            "tanaman memulai siklus generatif awal, sedangkan hubungan negatif menunjukkan cekaman berkepanjangan pada titik tumbuh."
+        )
+        opsi_perbaikan = (
+            "Lakukan pemetaan zonasi wilayah rawan cekaman air jangka panjang, dan integrasikan jadwal pemupukan makro (N, P, K) "
+            "tepat di bulan-bulan basah agar penyerapan hara di fase primordia tumbuh optimal."
+        )
+    else:
+        nama_fase = f"Luar Jendela Kritis ({pilihan_lag} bulan)"
+        insight_utama = f"Rentang waktu {pilihan_lag} bulan berada di luar batas jendela kritis metabolisme generatif kelapa sawit."
+        opsi_perbaikan = "Eksplorasi slider kontrol lag bulan ke angka rentang fase kritis (6, 10-15, 16-24, atau 25-40 bulan) untuk memunculkan analisa operasional agronomi yang valid."
 
     st.markdown(f"""
     * **Kekuatan Hubungan Kunci ($R^2$):** `{r_squared:.4f}` (**{r_squared*100:.1f}%** akurasi model iklim terhadap RJP).
-    * **Analisa Arah:** Hubungan bersifat {dampak_text}
+    * **Analisa Arah:**
+      1. Hubungan bersifat **{arah_hubungan} {kekuatan}**.
+      2. Pada cakupan **{nama_fase}**, setiap penambahan 1 mm curah hujan mempengaruhi **{efek_aksi}** RJP sebesar `{abs(b_slope):.5f}` janjang/pokok pada bulan berjalan.
     """)
     
-    # KORIDOR FIX: Posisi Kesimpulan diletakkan di bawah Uraian Analisa dengan interpretasi dinamis "per 1 mm"
     st.markdown("##### 📌 Kesimpulan:")
-    
-    if r_squared >= 0.70:
-        if b_slope >= 0:
-            st.write(f"🌟 Lag `{pilihan_lag} Bulan` terdeteksi sebagai periode kritis untuk mempertahankan tandan buah dengan nilai $R^2$ yang sangat kuat (`{r_squared:.2f}`). Setiap **kenaikan 1 mm curah hujan** pada periode tersebut berpengaruh terhadap **peningkatan jumlah janjang sawit (RJP)** sebesar `{abs(b_slope):.5f}` janjang/pokok pada bulan berjalan, karena terpenuhinya kebutuhan air optimal tanaman untuk menekan laju aborsi bakal buah.")
-        else:
-            st.write(f"🌟 Lag `{pilihan_lag} Bulan` terdeteksi sebagai periode kritis untuk mempertahankan tandan buah dengan nilai $R^2$ yang sangat kuat (`{r_squared:.2f}`). Namun, arah koefisien menunjukkan hubungan terbalik. Setiap **kenaikan 1 mm curah hujan** berpengaruh terhadap **penurunan RJP** sebesar `{abs(b_slope):.5f}` janjang/pokok, mengindikasikan adanya intensitas hujan berlebih (*over-wetting*) yang berisiko mengganggu efektivitas penyerapan hara.")
-
-    elif r_squared >= 0.40:
-        if b_slope >= 0:
-            st.write(f"▼ **Korelasi Moderat:** Lag `{pilihan_lag} Bulan` memengaruhi kuantitas janjang cukup signifikan dengan nilai $R^2$ (`{r_squared:.2f}`). Setiap **kenaikan 1 mm curah hujan** berpengaruh terhadap **kenaikan RJP** sebesar `{abs(b_slope):.5f}` janjang/pokok. Silakan geser slider ke angka bulan lain untuk melacak siklus diferensiasi seks bunga sawit sampai dengan siklus aborsi (biasanya berada pada rentang 9-24 bulan ke belakang) untuk mencari nilai $R^2$ tertinggi.")
-        else:
-            st.write(f"▼ **Korelasi Moderat:** Lag `{pilihan_lag} Bulan` memengaruhi kuantitas janjang cukup signifikan dengan nilai $R^2$ (`{r_squared:.2f}`). Setiap **kenaikan 1 mm curah hujan** justru berpengaruh terhadap **penurunan RJP** sebesar `{abs(b_slope):.5f}` janjang/pokok. Silakan eksplorasi slider lag bulan lainnya untuk memetakan puncak cekaman air (*water stress*) tanaman secara lebih presisi.")
-
-    else:
-        st.write(f"ℹ️ **Korelasi Lemah/Anomali:** Lag `{pilihan_lag} Bulan` kurang sensitif menjelaskan variasi jumlah janjang. Secara matematis, setiap **kenaikan 1 mm curah hujan** hanya berpengaruh marginal sebesar `{b_slope:+.5f}` terhadap perubahan nilai RJP. Disarankan menguji angka lag makro yang lebih tinggi (seperti rentang 18-24 bulan ke belakang) untuk melihat efek jangka panjang kumulatif dari kecukupan air terhadap pergeseran rasio seks (*sex ratio*) bunga kelapa sawit.")
+    st.markdown(f"""
+    * **Insight Utama:** {insight_utama}
+    * **Opsi Peningkatan / Perbaikan:** {opsi_perbaikan}
+    """)
