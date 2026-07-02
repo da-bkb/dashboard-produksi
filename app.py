@@ -72,8 +72,34 @@ def aplikasi_utama():
         list_bulan_raw = list(df_raw['Bulan'].unique()) if 'Bulan' in df_raw.columns else ['MEI']
         opsi_tambahan = ["CAWU I", "CAWU II", "CAWU III", "SEMESTER I", "SEMESTER II"]
         list_bulan = list_bulan_raw + [opsi for opsi in opsi_tambahan if opsi not in list_bulan_raw]
-        default_idx = list_bulan.index("MEI") if "MEI" in list_bulan else 0
-        
+
+        # --- DETEKSI OTOMATIS BULAN TERAKHIR YANG SUDAH ADA DATA AKTUAL ---
+        # File Budget/Sensus biasanya sudah berisi baris untuk 12 bulan penuh
+        # (bulan mendatang nilainya 0 karena belum terjadi), sehingga "bulan
+        # terakhir" harus dicari dari bulan terakhir yang KG AKTUAL-nya > 0,
+        # bukan sekadar bulan terakhir yang tercatat di file.
+        URUTAN_BULAN_STD = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGT', 'SEP', 'OKT', 'NOV', 'DES']
+        col_akt_kg_default = next(
+            (c for c in df_raw.columns if 'akt' in c.lower() and ('kg' in c.lower() or 'prod' in c.lower())),
+            None
+        )
+
+        bulan_terakhir = None
+        if col_akt_kg_default and 'Bulan' in df_raw.columns:
+            df_cek_aktual = df_raw.copy()
+            df_cek_aktual[col_akt_kg_default] = pd.to_numeric(df_cek_aktual[col_akt_kg_default], errors='coerce').fillna(0)
+            rekap_aktual = df_cek_aktual.groupby('Bulan')[col_akt_kg_default].sum()
+            bulan_ada_data = [b for b in URUTAN_BULAN_STD if b in rekap_aktual.index and rekap_aktual[b] > 0]
+            if bulan_ada_data:
+                bulan_terakhir = bulan_ada_data[-1]
+
+        if bulan_terakhir and bulan_terakhir in list_bulan:
+            default_idx = list_bulan.index(bulan_terakhir)
+        elif "MEI" in list_bulan:
+            default_idx = list_bulan.index("MEI")
+        else:
+            default_idx = 0
+
         pilihan_bulan = st.selectbox(
             "📅 Bulan Analisis:", 
             list_bulan, 
